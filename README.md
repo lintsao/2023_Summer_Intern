@@ -84,6 +84,7 @@ Root
 ├── train_st_ed.py: Overall training pipeline in py file.
 |
 ├── utils.py: Useful functions.
+```
 
 ## Usage
 All available configuration parameters are defined in core/config_default.py.
