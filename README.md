@@ -26,26 +26,64 @@ Root
 │   └── ST-ED.json: Config for the training task
 ├── configs
 |
-└── encoder4editing: Modules for the work, e4e
+├── core
 |
-└── einsightfacemodule: Modules for the work, face recognition
+├── encoder4editing: Modules for the work, e4e
 |
-└── models
-    ├── decoder.py: For image decoder (Use pretrained)
-    └── densenet.py: Modules for the work, e4e
-    └── einsightfacemodule: Modules for the work, face 
-```
-In this example, the tree structure is represented using indentation and lines, creating a hierarchical layout that represents the dependencies between different components and subcomponents. You can modify this structure to suit your specific needs.
-
-
-
-
-
-
-1. config: Training and Eval settings.
-2. configs: 
-3. models
-
+├── insightfacemodule: Modules for the work, face recognition
+|
+├── models
+│   ├── decoder.py: For image decoder (Use pretrained)
+│   └── densenet.py: For original ReDirTrans (Not used in our case)
+│   └── discriminator.py: For original ReDirTrans
+│   └── encoder.py: For image encoder (Use pretrained)
+│   └── gazeheadnet.py: For VGG gaze estimator
+│   └── gazeheadResnet.py: For Resnet gaze estimator
+│   └── load_pretrained_model.py: Load pretrained model into the training pipeline.
+│   └── redirtrans.py: Implement the ReDiiTrans module.
+│   └── st_ed.py: Overall model.
+|
+├── ours: Virtual environment modules.
+|
+├── output: Virtual environment modules.
+|
+├── pretrained_models
+│   ├── baseline_estimator_resnet.tar: resnet based gaze / head estimator
+│   ├── baseline_estimator_vgg.tar: vgg based baseline_estimator_resnet.tar
+│   ├── e4e_ffhq_encode.pt: e4e pretrained model
+│   └── r50_backbone.pth: For or50 recognition model
+│
+├── __init__.py
+│
+├── .gitignore
+│
+├── checkpoints_manager.py
+│
+├── dataset_explore.ipynb: Check the dataset information.
+│
+├── dataset_augmented.py
+│
+├── dataset.py: Dataset class object.
+│
+├── gazecapture_split.json: Split the training / val / testing data.
+│
+├── losses.py: Function for loss.
+|
+├── main.py
+|
+├── README.md
+|
+├── requirements.txt
+|
+├── src.tar
+|
+├── train_facenet.py
+|
+├── train_st_ed.ipynb: Overall training pipeline in ipynb file.
+|
+├── train_st_ed.py: Overall training pipeline in py file.
+|
+├── utils.py: Useful functions.
 
 ## Usage
 All available configuration parameters are defined in core/config_default.py.
@@ -96,6 +134,8 @@ You can download pretrained models here:
 - [Our fully-supervised gaze redirector model](https://drive.google.com/file/d/1PGb1GKy31WE692rvk_iBYQdeO_OK9BRi/view?usp=sharing)
 - [VGG gaze estimator](https://drive.google.com/file/d/1amWI-1mrVIRLgUntnvBwuAj3Nn9ktiq9/view?usp=sharing)
 - [ResNet gaze estimator for evaluation](https://drive.google.com/file/d/1P4PnRMDhb37NXnezYosiwqCQrEguD2kd/view?usp=sharing)
+- [e4e encoder and decoder](hhttps://drive.google.com/file/d/1cUv_reLE6k3604or78EranS7XzuVMWeO/view?usp=sharing)
+- [insightface r50 recognition model](https://drive.google.com/file/d/1UyqKMdCdVNfeXnPT7rP-QqLaauudCSGJ/view?usp=sharing)
 
 ## License
 This code base is dual-licensed under GPL or MIT licenses, with exceptions for files with NVIDIA Source Code License headers which are under Nvidia license.
