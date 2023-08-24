@@ -1,9 +1,7 @@
 baseline_estimator_resnet.tar
 baseline_estimator_vgg.tar
 pretrained_models
-encoder4editing
-insightfacemodule
-output/*
+output
 src.tar
 ours
 ...
