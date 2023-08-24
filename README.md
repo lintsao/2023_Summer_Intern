@@ -18,7 +18,7 @@ To pre-process datasets, please follow the instructions of [this repository](htt
 Note that we use full-face images with size128x128.
 
 You can download the preprocessed data of GazeCapture and MPIIGaze
-- [GazeCapture](hhttps://drive.google.com/file/d/1hYgs770CcwLLD9Z7H-cjV8QzvMGVE9CS/view?usp=sharing)
+- [GazeCapture](https://drive.google.com/file/d/1hYgs770CcwLLD9Z7H-cjV8QzvMGVE9CS/view?usp=sharing)
 - [MPIIGaze](https://drive.google.com/file/d/120zI6mZPr28SEm5jdHNuBXeHkEvC8Qu2/view?usp=sharing)
 
 ## File / Folder Description
