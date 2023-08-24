@@ -122,6 +122,8 @@ class DenseNetCompositeLayer(nn.Module):
         else:
             self.conv = nn.Conv2d(c_in, c_out, kernel_size=kernel_size, stride=1,
                                   padding=1 if kernel_size > 1 else 0, bias=False).to(device)
+        
+        # print(self.conv.weight)
         nn.init.kaiming_normal_(self.conv.weight.data)
         self.drop = nn.Dropout2d(p=p_dropout) if p_dropout > 1e-5 else None
         self.c_now = c_out

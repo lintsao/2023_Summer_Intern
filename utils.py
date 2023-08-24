@@ -67,30 +67,30 @@ def recover_images(x):
 def def_test_list():
     # fixed visualization pairs from GazeCapture test set
     test_list = []
-    test_list.append({'key': '01200', 'idx_a': 406, 'idx_b': 430})
-    test_list.append({'key': '01370', 'idx_a': 1248, 'idx_b': 431})
-    test_list.append({'key': '01376', 'idx_a': 136, 'idx_b': 487})
-    test_list.append({'key': '01425', 'idx_a': 463, 'idx_b': 269})
-    test_list.append({'key': '01517', 'idx_a': 893, 'idx_b': 661})
-    test_list.append({'key': '01525', 'idx_a': 914, 'idx_b': 542})
-    test_list.append({'key': '01575', 'idx_a': 751, 'idx_b': 767})
-    test_list.append({'key': '01689', 'idx_a': 900, 'idx_b': 649})
-    test_list.append({'key': '00178', 'idx_a': 275, 'idx_b': 34})
-    test_list.append({'key': '00190', 'idx_a': 92, 'idx_b': 107})
-    test_list.append({'key': '02348', 'idx_a': 93, 'idx_b': 525})
-    test_list.append({'key': '02833', 'idx_a': 2003, 'idx_b': 1412})
-    test_list.append({'key': '02966', 'idx_a': 843, 'idx_b': 4})
-    test_list.append({'key': '00319', 'idx_a': 1220, 'idx_b': 2700})
-    test_list.append({'key': '03366', 'idx_a': 177, 'idx_b': 27})
-    test_list.append({'key': '03404', 'idx_a': 361, 'idx_b': 640})
+    # test_list.append({'key': '01200', 'idx_a': 406, 'idx_b': 430})
+    # test_list.append({'key': '01370', 'idx_a': 1248, 'idx_b': 431})
+    # test_list.append({'key': '01376', 'idx_a': 136, 'idx_b': 487})
+    # test_list.append({'key': '01425', 'idx_a': 463, 'idx_b': 269})
+    # test_list.append({'key': '01517', 'idx_a': 893, 'idx_b': 661})
+    # test_list.append({'key': '01525', 'idx_a': 914, 'idx_b': 542})
+    # test_list.append({'key': '01575', 'idx_a': 751, 'idx_b': 767})
+    # test_list.append({'key': '01689', 'idx_a': 900, 'idx_b': 649})
+    # test_list.append({'key': '00178', 'idx_a': 275, 'idx_b': 34})
+    # test_list.append({'key': '00190', 'idx_a': 92, 'idx_b': 107})
+    # test_list.append({'key': '02348', 'idx_a': 93, 'idx_b': 525})
+    # test_list.append({'key': '02833', 'idx_a': 2003, 'idx_b': 1412})
+    # test_list.append({'key': '02966', 'idx_a': 843, 'idx_b': 4})
+    # test_list.append({'key': '00319', 'idx_a': 1220, 'idx_b': 2700})
+    # test_list.append({'key': '03366', 'idx_a': 177, 'idx_b': 27})
+    # test_list.append({'key': '03404', 'idx_a': 361, 'idx_b': 640})
     test_list.append({'key': '00563', 'idx_a': 37, 'idx_b': 1810})
     test_list.append({'key': '00616', 'idx_a': 1840, 'idx_b': 280})
     test_list.append({'key': '00646', 'idx_a': 601, 'idx_b': 1793})
     test_list.append({'key': '00654', 'idx_a': 301, 'idx_b': 728})
     test_list.append({'key': '00777', 'idx_a': 451, 'idx_b': 293})
-    test_list.append({'key': '00796', 'idx_a': 662, 'idx_b': 1470})
-    test_list.append({'key': '00935', 'idx_a': 73, 'idx_b': 773})
-    test_list.append({'key': '00953', 'idx_a': 512, 'idx_b': 1519})
+    # test_list.append({'key': '00796', 'idx_a': 662, 'idx_b': 1470})
+    # test_list.append({'key': '00935', 'idx_a': 73, 'idx_b': 773})
+    # test_list.append({'key': '00953', 'idx_a': 512, 'idx_b': 1519})
     return test_list
 
 
@@ -169,7 +169,8 @@ def script_init_common():
     parser.add_argument('config_json', type=str, nargs='*',
                         help=('Path to config in JSON format. '
                               'Multiple configs will be parsed in the specified order.'))
-    args = parser.parse_args()
+    # args = parser.parse_args()
+    args, unknown = parser.parse_known_args() # Use for ipython
     # Parse configs in order specified by user
     for json_path in args.config_json:
         config.import_json(json_path)
@@ -190,6 +191,22 @@ def save_model(network, current_step):
 
 def load_model(network, path):
     checkpoint = torch.load(path)
-    network.encoder.load_state_dict(checkpoint['encoder'])
-    network.decoder.load_state_dict(checkpoint['decoder'])
-    network.discriminator.load_state_dict(checkpoint['discriminator'])
+
+    new_state_dict = OrderedDict()
+    for module, value in checkpoint.items():
+        new_state_dict[module] = {}
+        for key, value in checkpoint[module].items():
+            if key.startswith('module.'):
+                new_key = key[7:]  # Remove the "module." prefix
+            else:
+                new_key = key
+            new_state_dict[module][new_key] = value
+
+    # network.encoder.load_state_dict(checkpoint['encoder'])
+    # network.decoder.load_state_dict(checkpoint['decoder'])
+    # network.discriminator.load_state_dict(checkpoint['discriminator'])
+
+
+    network.encoder.load_state_dict(new_state_dict['encoder'])
+    network.decoder.load_state_dict(new_state_dict['decoder'])
+    network.discriminator.load_state_dict(new_state_dict['discriminator'])

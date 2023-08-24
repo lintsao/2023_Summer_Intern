@@ -26,63 +26,56 @@ logger = logging.getLogger(__name__)
 
 
 class DefaultConfig(object):
-
-    ######################################
     # growth
+    growth_rate = 12
+    densenet_blocks = 5
+
+    # Loss
+    coeff_l1_loss = 200.0
+    coeff_gaze_loss = 2.0
+    coeff_embedding_consistency_loss = 1.0
+    coeff_discriminator_loss = 0.5
+    coeff_disentangle_embedding_loss = 0.0
+    coeff_disentangle_pseudo_label_loss = 0.0
+    coeff_redirection_feature_loss = 0.0
+    coeff_redirection_gaze_loss = 1.0
+    semi_supervised = False
     num_labeled_samples = 0
 
     pick_at_least_per_person = None
     use_apex = False
+    batch_size = 4
+    eval_batch_size = 4
+    num_data_loaders = 12
     decay_steps = 34480
     decay = 0.8
     num_training_steps = 206865
     l2_reg = 1e-4
-
-    ######################################
-
-    # growth
-    growth_rate = 32
-    eval_batch_size = 2
-    num_data_loaders = 4
-    use_tensorboard = True
-    skip_training = False
     print_freq_train = 200
-    test_subsample = 0.02
-    print_freq_test = 5000
-    save_freq_images = 5000
-    save_interval = 10000
-    num_2d_units = 2
-    size_2d_unit = 16
-    coeff_l1_loss = 200.0
-    coeff_id_loss = 1.0
-    coeff_perceptual_loss = 1.0
-    coeff_gaze_loss = 5.0
-    coeff_embedding_consistency_loss = 2.0
-    coeff_disentangle_embedding_loss = 2.0
-    coeff_disentangle_pseudo_label_loss = 2.0
-    coeff_discriminator_loss = 1.0
-    coeff_redirection_feature_loss = 200.0
-    coeff_redirection_gaze_loss = 2.0
+    print_freq_test = 4000
+    save_freq_images = 4000
+    save_interval = 50000
+    test_subsample = 0.05  # proportion of test set to use
+    use_tensorboard = False
+    skip_training = False
     use_mixing = True
-    densenet_blocks = 5
-    base_learning_rate = 0.00005
-    use_apex = False
-    compute_full_result = False
-    load_step = 0
+    compute_full_result = True
     store_redirect_dataset = False
-    semi_supervised = False
 
     # data path
-    mpiigaze_file = "/home/ethentsao/Desktop/faze_preprocess/outputs_sted/MPIIGaze_128.h5"
-    gazecapture_file = "/home/ethentsao/Desktop/faze_preprocess/outputs_sted/GazeCapture_128.h5"
-    columbia_file = ".../Columbia_128.h5"
-    eyediap_file = ".../EYEDIAP_128.h5"
-    gazenet_savepath = ".../baseline_estimator_vgg/"
-    eval_gazenet_savepath = ".../baseline_estimator_resnet/"
-    save_path = "output/ST-ED/save_2"
-    log_path = "output/ST-ED/log_2"
-    batch_size = 2
+    mpiigaze_file = '.'
+    gazecapture_file = '.'
+    save_path = '.'
+    log_path = '.'
+    gazenet_savepath = '.'
+    eval_gazenet_savepath = '.'
+    eyediap_file = '.'
+    columbia_file = '.'
     load_step = 0
+
+    size_0d_unit = 512
+    num_1d_units = 16
+    size_1d_unit = 16
     num_2d_units = 2
     size_2d_unit = 16
 

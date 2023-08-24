@@ -1,32 +1,9 @@
-# --------------------------------------------------------
-# Copyright (C) 2019 NVIDIA Corporation. All rights reserved.
-# NVIDIA Source Code License (1-Way Commercial)
-# Code written by Seonwook Park, Shalini De Mello, Yufeng Zheng.
-# --------------------------------------------------------
-import numpy as np
-from collections import OrderedDict
-import gc
-import json
-import os
-import cv2
-import torch
-import torch.nn as nn
-from torch.utils.data import DataLoader, Subset
-import logging
-import losses
-from tqdm import tqdm
+from train_st_ed import *
 
-from dataset import HDFDataset
-from utils import save_images, worker_init_fn, send_data_dict_to_gpu, recover_images, def_test_list, RunningStatistics,\
-    adjust_learning_rate, script_init_common, get_example_images, save_model, load_model
-from core import DefaultConfig
-from models import STED
 logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
-
 
 config = DefaultConfig()
 script_init_common()
-print(config.save_path)
 
 # Set device
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -177,7 +154,6 @@ if torch.cuda.device_count() > 1:
     network.lpips = nn.DataParallel(network.lpips)
     network.pretrained_arcface = nn.DataParallel(network.pretrained_arcface)
 
-###########################################################################################################
 """
 This part is to prepare for the training step.
 """
@@ -211,7 +187,7 @@ def execute_training_step(current_step):
 
     # save training samples in tensorboard
     if config.use_tensorboard and current_step % config.save_freq_images == 0 and current_step != 0:
-        for image_index in range(len(input['image_a'])):
+        for image_index in range(5):
             tensorboard.add_image('train/input_image',
                                   torch.clamp((input['image_a'][image_index] + 1) * (255.0 / 2.0), 0, 255).type(
                                       torch.cuda.ByteTensor), current_step)
@@ -256,7 +232,6 @@ def execute_test(tag, data_dict):
 """
 This part is to prepare for the visualization step.
 """
-###########################################################################################################
 
 def execute_visualize(data):
     output_dict, losses_dict = network(test_visualize)
@@ -282,11 +257,10 @@ if config.use_tensorboard and ((not config.skip_training) or config.compute_full
     tensorboard = SummaryWriter(logdir=config.log_path)
 current_step = config.load_step
 
-###########################################################################################################
+
 """
 This part is to start thr training step.
 """
-###########################################################################################################
 
 if not config.skip_training:
     logging.info('Training')
@@ -317,7 +291,7 @@ if not config.skip_training:
                 torch.cuda.empty_cache()
             print("Finish test model.")
 
-        # # Visualization loop
+        # Visualization loop
         if (current_step != 0 and current_step % config.save_freq_images == 0) or current_step == config.num_training_steps - 1:
             network.eval()
             torch.cuda.empty_cache()
@@ -347,11 +321,10 @@ if not config.skip_training:
     save_model(network, config.num_training_steps) # Save final model.
     del all_data
 
-###########################################################################################################
+
 """
 This part is to evaluate.
 """
-###########################################################################################################
     
 # Compute evaluation results on complete test sets
 if config.compute_full_result:
@@ -413,11 +386,10 @@ if config.compute_full_result:
     # network.clean_up()
     torch.cuda.empty_cache()
 
-###########################################################################################################
+
 # """
 # This part is to evaluate.
 # """
-###########################################################################################################
 
 # Use Redirector to create new training data
 if config.store_redirect_dataset:
@@ -505,11 +477,9 @@ if config.store_redirect_dataset:
     logging.info('Done')
     del train_dataset, train_dataloader
 
-###########################################################################################################
 """
 This part is to evaluate.
 """
-###########################################################################################################
 
 # Use Redirector to create new training data
 if config.store_redirect_dataset:

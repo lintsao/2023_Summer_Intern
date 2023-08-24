@@ -17,6 +17,36 @@ pip install -r requirements.txt
 To pre-process datasets, please follow the instructions of [this repository](https://github.com/swook/faze_preprocess). 
 Note that we use full-face images with size128x128.
 
+## File / Folder Description
+```
+Root
+├──config
+│   ├── eval.json: Config for evaluation
+│   └── semi-supervise.json: Config for the semi-supervision gaze and head evaluation task
+│   └── ST-ED.json: Config for the training task
+├── configs
+|
+└── encoder4editing: Modules for the work, e4e
+|
+└── einsightfacemodule: Modules for the work, face recognition
+|
+└── models
+    ├── decoder.py: For image decoder (Use pretrained)
+    └── densenet.py: Modules for the work, e4e
+    └── einsightfacemodule: Modules for the work, face 
+```
+In this example, the tree structure is represented using indentation and lines, creating a hierarchical layout that represents the dependencies between different components and subcomponents. You can modify this structure to suit your specific needs.
+
+
+
+
+
+
+1. config: Training and Eval settings.
+2. configs: 
+3. models
+
+
 ## Usage
 All available configuration parameters are defined in core/config_default.py.
 In order to override the default values, one can do:
@@ -69,3 +99,4 @@ You can download pretrained models here:
 
 ## License
 This code base is dual-licensed under GPL or MIT licenses, with exceptions for files with NVIDIA Source Code License headers which are under Nvidia license.
+
