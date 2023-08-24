@@ -139,7 +139,7 @@ You can download pretrained models here:
 - [Our fully-supervised gaze redirector model](https://drive.google.com/file/d/1PGb1GKy31WE692rvk_iBYQdeO_OK9BRi/view?usp=sharing)
 - [VGG gaze estimator](https://drive.google.com/file/d/1amWI-1mrVIRLgUntnvBwuAj3Nn9ktiq9/view?usp=sharing)
 - [ResNet gaze estimator for evaluation](https://drive.google.com/file/d/1P4PnRMDhb37NXnezYosiwqCQrEguD2kd/view?usp=sharing)
-- [e4e encoder and decoder](hhttps://drive.google.com/file/d/1cUv_reLE6k3604or78EranS7XzuVMWeO/view?usp=sharing)
+- [e4e encoder and decoder](https://drive.google.com/file/d/1cUv_reLE6k3604or78EranS7XzuVMWeO/view?usp=sharing)
 - [insightface r50 recognition model](https://drive.google.com/file/d/1UyqKMdCdVNfeXnPT7rP-QqLaauudCSGJ/view?usp=sharing)
 
 ## License
