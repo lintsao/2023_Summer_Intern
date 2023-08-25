@@ -15,7 +15,7 @@ from argparse import Namespace
 
 from .densenet import DenseNetBlock, DenseNetTransitionUp, DenseNetDecoderLastLayers
 from core import DefaultConfig
-from encoder4editing.models.psp import pSp  # we use the pSp framework to load the e4e decoder.
+from encoder4editing_tmp.models.psp import pSp  # we use the pSp framework to load the e4e decoder.
 
 config = DefaultConfig()
 

@@ -17,7 +17,7 @@ from .densenet import (
     DenseNetTransitionDown,
 )
 from core import DefaultConfig
-from encoder4editing.models.psp import pSp  # we use the pSp framework to load the e4e encoder.
+from encoder4editing_tmp.models.psp import pSp  # we use the pSp framework to load the e4e encoder.
 
 config = DefaultConfig()
 
