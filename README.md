@@ -131,10 +131,6 @@ python train_st_ed.py config/ST-ED.json
 
 Or use the **train_st_ed.ipynb** file to check the training details step-by-step
 
-```
-python train_st_ed.py config/ST-ED.json
-```
-
 You can check Tensorboard for training images, losses and evaluation metrics. Generated images from testsets are store in the model folder.
 
 To train in a semi-supervised setting and generate augmented dataset, run this command (set ```num_labeled_samples```to a desired value):
