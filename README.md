@@ -6,9 +6,8 @@ This repository is the official implementation of [Self-Learning Transformations
 * Project page: [https://ait.ethz.ch/projects/2020/STED-gaze/](https://ait.ethz.ch/projects/2020/STED-gaze/)
 
 ## Requirements
-We tested our model with Python 3.8.3 and Ubuntu 16.04. The results in our paper are obtained with torch 1.3.1, but we have tested this code-base also with torch 1.7.0 and achieved similar performance. We provide the pre-trained model obtained with the updated version.
-
-First install torch 1.7.0, and torchvision 0.8.1 following the guidance from [here](https://pytorch.org/get-started/locally/), and then install other packages:
+We tested our model with Python 3.8.3 and Ubuntu 16.04. 
+Please install the following packages:
 
 ```
 pip install -r requirements.txt
@@ -27,14 +26,13 @@ or directly use the bash file to download the dataset.
 bash download_preprocessed_dataset.sh
 ```
 
-To use the pretrained models (e.g. VGG gaze estimator, ResNet gaze estimator for evaluation, e4e enocder, and insightface r50 recognition model), you can download the preprocessed data of GazeCapture and MPIIGaze
-- [Our fully-supervised gaze redirector model](https://drive.google.com/file/d/1PGb1GKy31WE692rvk_iBYQdeO_OK9BRi/view?usp=sharing)
+To use the pre-trained models (e.g. VGG gaze estimator, ResNet gaze estimator for evaluation, e4e encoder, and insight-face r50 recognition model), you can download the preprocessed data of GazeCapture and MPIIGaze
 - [VGG gaze estimator](https://drive.google.com/file/d/1amWI-1mrVIRLgUntnvBwuAj3Nn9ktiq9/view?usp=sharing)
 - [ResNet gaze estimator for evaluation](https://drive.google.com/file/d/1P4PnRMDhb37NXnezYosiwqCQrEguD2kd/view?usp=sharing)
 - [e4e encoder and decoder](https://drive.google.com/file/d/1cUv_reLE6k3604or78EranS7XzuVMWeO/view?usp=sharing)
 - [insightface r50 recognition model](https://drive.google.com/file/d/1UyqKMdCdVNfeXnPT7rP-QqLaauudCSGJ/view?usp=sharing)
 
-or directly use the bash file to download the pretrained models.
+or directly use the bash file to download the pre-trained models.
 
 ```
 bash download_pretrained_model.sh
@@ -47,22 +45,23 @@ Root
 │   ├── eval.json: Config for evaluation
 │   └── semi-supervise.json: Config for the semi-supervision gaze and head evaluation task
 │   └── ST-ED.json: Config for the training task
+|
 ├── configs
 |
 ├── core
 |
-├── encoder4editing: Modules for the work, e4e
+├── encoder4editing_tmp: Modules for the work, e4e
 |
-├── insightfacemodule: Modules for the work, face recognition
+├── insightfacemodule_tmp: Modules for the work, face recognition
 |
 ├── models
-│   ├── decoder.py: For image decoder (Use pretrained)
+│   ├── decoder.py: For image decoder (Use pre-trained)
 │   └── densenet.py: For original ReDirTrans (Not used in our case)
 │   └── discriminator.py: For original ReDirTrans
-│   └── encoder.py: For image encoder (Use pretrained)
+│   └── encoder.py: For image encoder (Use pre-trained)
 │   └── gazeheadnet.py: For VGG gaze estimator
 │   └── gazeheadResnet.py: For Resnet gaze estimator
-│   └── load_pretrained_model.py: Load pretrained model into the training pipeline.
+│   └── load_pretrained_model.py: Load the pre-trained model into the training pipeline.
 │   └── redirtrans.py: Implement the ReDiiTrans module.
 │   └── st_ed.py: Overall model.
 |
@@ -71,9 +70,9 @@ Root
 ├── output: Virtual environment modules.
 |
 ├── pretrained_models
-│   ├── baseline_estimator_resnet.tar: resnet based gaze / head estimator
+│   ├── baseline_estimator_resnet.tar: resnet-based gaze/head estimator
 │   ├── baseline_estimator_vgg.tar: vgg based baseline_estimator_resnet.tar
-│   ├── e4e_ffhq_encode.pt: e4e pretrained model
+│   ├── e4e_ffhq_encode.pt: e4e pre-trained model
 │   └── r50_backbone.pth: For or50 recognition model
 │
 ├── __init__.py
@@ -130,6 +129,12 @@ To train the gaze redirection model in the paper, run this command:
 python train_st_ed.py config/ST-ED.json
 ```
 
+Or use the **train_st_ed.ipynb** file to check the training details step-by-step
+
+```
+python train_st_ed.py config/ST-ED.json
+```
+
 You can check Tensorboard for training images, losses and evaluation metrics. Generated images from testsets are store in the model folder.
 
 To train in a semi-supervised setting and generate augmented dataset, run this command (set ```num_labeled_samples```to a desired value):
@@ -140,11 +145,11 @@ python train_st_ed.py config/semi-supervise.json
 
 Note that for semi-supervised training, we also train the estimator with only labeled images. We provide the script for training gaze and head pose estimators: ```train_facenet.py```, so that you can train baseline and augmented estimators and evaluate the data augmentation performance of our method. 
 
-Training of redirector will take 1-2 days on a single GPU.
+Training of the redirector will take 1-2 days on a single GPU.
 
 ### Evaluation
 
-To evaluate pretrained full model, run:
+To evaluate the pre-trained full model, run:
 
 ```
 python train_st_ed.py config/eval.json
@@ -153,10 +158,9 @@ python train_st_ed.py config/eval.json
 Quantitative evaluation of all test datasets will take a few hours. If you want to speed up the process, try to disable the calculation of disentanglement metrics, or evaluate on partial dataset (this is what we do during training!)
 ## Pre-trained Models
 
-You can download pretrained models here:
+You can download the pre-trained models here:
 
 - [Our fully-supervised gaze redirector model](https://drive.google.com/file/d/1PGb1GKy31WE692rvk_iBYQdeO_OK9BRi/view?usp=sharing)
 
 ## License
 This code base is dual-licensed under GPL or MIT licenses, with exceptions for files with NVIDIA Source Code License headers which are under Nvidia license.
-
