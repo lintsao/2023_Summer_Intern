@@ -50,6 +50,10 @@ Root
 |
 ├── core
 |
+├── dataset
+│   ├── GazeCapture_128.h5
+│   └── MPIIGaze_128.h5
+|
 ├── encoder4editing_tmp: Modules for the work, e4e
 |
 ├── insightfacemodule_tmp: Modules for the work, face recognition
@@ -67,7 +71,7 @@ Root
 |
 ├── ours: Virtual environment modules.
 |
-├── output: Virtual environment modules.
+├── output: Results for the experiments.
 |
 ├── pretrained_models
 │   ├── baseline_estimator_resnet.tar: resnet-based gaze/head estimator
