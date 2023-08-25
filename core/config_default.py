@@ -73,8 +73,8 @@ class DefaultConfig(object):
     semi_supervised = False
 
     # data path
-    mpiigaze_file = "/home/ethentsao/Desktop/faze_preprocess/outputs_sted/MPIIGaze_128.h5"
-    gazecapture_file = "/home/ethentsao/Desktop/faze_preprocess/outputs_sted/GazeCapture_128.h5"
+    mpiigaze_file = "./dataset/MPIIGaze_128.h5"
+    gazecapture_file = "./dataset/GazeCapture_128.h5"
     columbia_file = ".../Columbia_128.h5"
     eyediap_file = ".../EYEDIAP_128.h5"
     gazenet_savepath = ".../baseline_estimator_vgg/"
