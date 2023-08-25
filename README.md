@@ -15,11 +15,30 @@ pip install -r requirements.txt
 ```
  
 To pre-process datasets, please follow the instructions of [this repository](https://github.com/swook/faze_preprocess). 
-Note that we use full-face images with size128x128.
+Note that we use full-face images with size 128x128.
 
 You can download the preprocessed data of GazeCapture and MPIIGaze
 - [GazeCapture](https://drive.google.com/file/d/1hYgs770CcwLLD9Z7H-cjV8QzvMGVE9CS/view?usp=sharing)
 - [MPIIGaze](https://drive.google.com/file/d/120zI6mZPr28SEm5jdHNuBXeHkEvC8Qu2/view?usp=sharing)
+
+or directly use the bash file to download the dataset.
+
+```
+bash download_preprocessed_dataset.sh
+```
+
+To use the pretrained models (e.g. VGG gaze estimator, ResNet gaze estimator for evaluation, e4e enocder, and insightface r50 recognition model), you can download the preprocessed data of GazeCapture and MPIIGaze
+- [Our fully-supervised gaze redirector model](https://drive.google.com/file/d/1PGb1GKy31WE692rvk_iBYQdeO_OK9BRi/view?usp=sharing)
+- [VGG gaze estimator](https://drive.google.com/file/d/1amWI-1mrVIRLgUntnvBwuAj3Nn9ktiq9/view?usp=sharing)
+- [ResNet gaze estimator for evaluation](https://drive.google.com/file/d/1P4PnRMDhb37NXnezYosiwqCQrEguD2kd/view?usp=sharing)
+- [e4e encoder and decoder](https://drive.google.com/file/d/1cUv_reLE6k3604or78EranS7XzuVMWeO/view?usp=sharing)
+- [insightface r50 recognition model](https://drive.google.com/file/d/1UyqKMdCdVNfeXnPT7rP-QqLaauudCSGJ/view?usp=sharing)
+
+or directly use the bash file to download the pretrained models.
+
+```
+bash download_pretrained_model.sh
+```
 
 ## File / Folder Description
 ```
@@ -137,10 +156,6 @@ Quantitative evaluation of all test datasets will take a few hours. If you want 
 You can download pretrained models here:
 
 - [Our fully-supervised gaze redirector model](https://drive.google.com/file/d/1PGb1GKy31WE692rvk_iBYQdeO_OK9BRi/view?usp=sharing)
-- [VGG gaze estimator](https://drive.google.com/file/d/1amWI-1mrVIRLgUntnvBwuAj3Nn9ktiq9/view?usp=sharing)
-- [ResNet gaze estimator for evaluation](https://drive.google.com/file/d/1P4PnRMDhb37NXnezYosiwqCQrEguD2kd/view?usp=sharing)
-- [e4e encoder and decoder](https://drive.google.com/file/d/1cUv_reLE6k3604or78EranS7XzuVMWeO/view?usp=sharing)
-- [insightface r50 recognition model](https://drive.google.com/file/d/1UyqKMdCdVNfeXnPT7rP-QqLaauudCSGJ/view?usp=sharing)
 
 ## License
 This code base is dual-licensed under GPL or MIT licenses, with exceptions for files with NVIDIA Source Code License headers which are under Nvidia license.
