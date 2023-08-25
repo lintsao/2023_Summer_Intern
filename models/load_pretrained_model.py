@@ -2,8 +2,8 @@ import torch
 import torchvision.transforms as transforms
 from argparse import Namespace
 
-from encoder4editing.models.psp import pSp  # we use the pSp framework to load the e4e encoder.
-from insightfacemodule.recognition.arcface_torch.backbones import get_model
+from encoder4editing_tmp.models.psp import pSp  # we use the pSp framework to load the e4e encoder.
+from insightfacemodule_tmp.recognition.arcface_torch.backbones import get_model
 
 import cv2
 import numpy as np
