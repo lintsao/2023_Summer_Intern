@@ -71,6 +71,6 @@ class Fusion_Layer(nn.Module):
 
     def forward(self, input):
         x = self.fc1(input)
-        x = x.view(x.shape[0], 1, -1) # Should be changed to 512, 18, ?
+        x = x.view(x.shape[0], -1, 512) # Should be changed to 512, 18, ?
 
         return x

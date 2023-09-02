@@ -93,12 +93,13 @@ class pSp(nn.Module):
 
     def __load_latent_avg(self, ckpt, repeat=None):
         if 'latent_avg' in ckpt:
-            self.latent_avg = ckpt['latent_avg'].to(self.opts.device)
+            device = ckpt['latent_avg'].device
+            self.latent_avg = ckpt['latent_avg'].to(device)
         elif self.opts.start_from_latent_avg:
             # Compute mean code based on a large number of latents (10,000 here)
-            with torch.no_grad():
-                self.latent_avg = self.decoder.mean_latent(10000).to(self.opts.device)
+                self.latent_avg = self.decoder.mean_latent(10000).to("cuda")
         else:
             self.latent_avg = None
         if repeat is not None and self.latent_avg is not None:
-            self.latent_avg = self.latent_avg.repeat(repeat, 1)
+            device = ckpt['latent_avg'].device
+            self.latent_avg = self.latent_avg.repeat(repeat, 1).to(device)

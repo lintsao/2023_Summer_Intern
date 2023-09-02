@@ -19,7 +19,7 @@ from encoder4editing_tmp.models.psp import pSp  # we use the pSp framework to lo
 
 config = DefaultConfig()
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class Decoder(nn.Module):
 

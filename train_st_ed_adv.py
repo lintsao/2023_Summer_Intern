@@ -20,7 +20,7 @@ from dataset import HDFDataset
 from utils import save_images, worker_init_fn, send_data_dict_to_gpu, recover_images, def_test_list, RunningStatistics,\
     adjust_learning_rate, script_init_common, get_example_images, save_model, load_model
 from core import DefaultConfig
-from models import STED
+from models.st_ed_adv import STED
 logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
 
 
@@ -176,6 +176,7 @@ if torch.cuda.device_count() > 1:
     network.GazeHeadNet_train = nn.DataParallel(network.GazeHeadNet_train)
     network.lpips = nn.DataParallel(network.lpips)
     network.pretrained_arcface = nn.DataParallel(network.pretrained_arcface)
+    network.e4e_net = nn.DataParallel(network.e4e_net)
 
 ###########################################################################################################
 """

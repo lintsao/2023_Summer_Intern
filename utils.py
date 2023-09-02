@@ -178,10 +178,14 @@ def script_init_common():
 
 def save_model(network, current_step):
     models = {
-        'encoder': network.encoder.state_dict(),
-        'decoder': network.decoder.state_dict(),
+        # 'encoder': network.encoder.state_dict(),
+        # 'decoder': network.decoder.state_dict(),
         'discriminator': network.discriminator.state_dict(),
+        'redirtrans_p': network.redirtrans_p.state_dict(),
+        'redirtrans_dp': network.redirtrans_dp.state_dict(),
+        'fusion': network.fusion.state_dict()
     }
+
     p = os.path.join(config.save_path, "checkpoints")
     path = os.path.join(p, str(current_step) + '.pt')
     if not os.path.exists(p):
@@ -202,11 +206,16 @@ def load_model(network, path):
                 new_key = key
             new_state_dict[module][new_key] = value
 
-    # network.encoder.load_state_dict(checkpoint['encoder'])
+
+    network.redirtrans_p.load_state_dict(checkpoint['redirection_p'])
+    network.redirtrans_dp.load_state_dict(checkpoint['redirection_dp'])
+    network.fusion.load_state_dict(checkpoint['fusion'])
+
+    # network.encoder.load_state_dict(checkpoint['redirection'])
     # network.decoder.load_state_dict(checkpoint['decoder'])
     # network.discriminator.load_state_dict(checkpoint['discriminator'])
 
 
-    network.encoder.load_state_dict(new_state_dict['encoder'])
-    network.decoder.load_state_dict(new_state_dict['decoder'])
-    network.discriminator.load_state_dict(new_state_dict['discriminator'])
+    # network.encoder.load_state_dict(new_state_dict['encoder'])
+    # network.decoder.load_state_dict(new_state_dict['decoder'])
+    # network.discriminator.load_state_dict(new_state_dict['discriminator'])

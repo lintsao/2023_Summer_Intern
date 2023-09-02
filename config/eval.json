@@ -1,9 +1,9 @@
 {
-    "mpiigaze_file": "/home/ethentsao/Desktop/faze_preprocess/outputs_sted/MPIIGaze_128.h5",
-    "gazecapture_file": "/home/ethentsao/Desktop/faze_preprocess/outputs_sted/GazeCapture_128.h5",
-    "gazenet_savepath": ".../baseline_estimator_vgg/",
-    "eval_gazenet_savepath": ".../baseline_estimator_resnet/",
-    "save_path": "output",
+    "mpiigaze_file": "./dataset/MPIIGaze_128.h5",
+    "gazecapture_file": "./dataset/MPIIGaze_128.h5",
+    "gazenet_savepath": "output/baseline_estimator_vgg/",
+    "eval_gazenet_savepath": "output/baseline_estimator_resnet/",
+    "save_path": "output/ST-ED/save_2",
     "batch_size": 20,
     "growth_rate": 32,
     "eval_batch_size": 32,
@@ -15,9 +15,6 @@
     "print_freq_test": 5000,
     "save_freq_images": 5000,
     "save_interval": 10000,
-    "size_0d_unit": 1024,
-    "num_1d_units": 4,
-    "size_1d_unit": 16,
     "num_2d_units": 4,
     "size_2d_unit": 16,
     "coeff_l1_loss":200.0,
@@ -33,7 +30,7 @@
     "base_learning_rate": 0.00005,
     "use_apex": false,
     "compute_full_result": true,
-    "load_step": 206865,
+    "load_step": 70000,
     "store_redirect_dataset": false,
     "semi_supervised":false
 }

@@ -27,64 +27,86 @@ logger = logging.getLogger(__name__)
 
 class DefaultConfig(object):
 
-    ######################################
-    # growth
-    num_labeled_samples = 0
-
-    pick_at_least_per_person = None
-    use_apex = False
-    decay_steps = 34480
-    decay = 0.8
-    num_training_steps = 206865
-    l2_reg = 1e-4
-
-    ######################################
-
-    # growth
-    growth_rate = 32
+    # Batch Size-related
+    batch_size = 2
     eval_batch_size = 2
-    num_data_loaders = 4
-    use_tensorboard = True
-    skip_training = False
-    print_freq_train = 200
-    test_subsample = 0.02
-    print_freq_test = 5000
-    save_freq_images = 5000
-    save_interval = 10000
-    num_2d_units = 2
-    size_2d_unit = 16
-    coeff_l1_loss = 200.0
-    coeff_id_loss = 1.0
-    coeff_perceptual_loss = 1.0
-    coeff_gaze_loss = 5.0
-    coeff_embedding_consistency_loss = 2.0
+
+    # Coefficients
+    coeff_discriminator_loss = 1.0
+    coeff_discriminator_r1_loss = 1.0
     coeff_disentangle_embedding_loss = 2.0
     coeff_disentangle_pseudo_label_loss = 2.0
-    coeff_discriminator_loss = 1.0
+    coeff_embedding_consistency_loss = 2.0
+    coeff_gaze_loss = 5.0
+    coeff_id_loss = 1.0
+    coeff_l1_loss = 200.0
+    coeff_perceptual_loss = 1.0
     coeff_redirection_feature_loss = 200.0
     coeff_redirection_gaze_loss = 2.0
-    use_mixing = True
+    r1 = 10
+    w_discriminator_lambda = 0
+
+    # Decay-related
+    decay = 0.8
+    decay_steps = 34480
+
+    # Densenet-related
     densenet_blocks = 5
-    base_learning_rate = 0.00005
-    use_apex = False
+
+    # Delta Norm-related
+    delta_norm = 2
+    delta_norm_lambda = 2e-4
+
+    # General Configuration
     compute_full_result = False
+    d_reg_every = 16
+    is_progressive_training = True
     load_step = 0
-    store_redirect_dataset = False
+    num_data_loaders = 4
+    print_freq_test = 5000
+    print_freq_train = 200
+    save_freq_images = 5000
+    save_interval = 10000
     semi_supervised = False
+    skip_training = False
+    start_from_latent_avg = True
+    store_redirect_dataset = False
+    test_subsample = 0.02
+    use_apex = False
+    use_mixing = True
+    use_tensorboard = True
+    use_w_pool = True
+    w_pool_size = 50
+
+    # Learning Rates
+    base_learning_rate = 0.00005
+    w_discriminator_lr = 2e-5
+
+    # Size-related
+    num_2d_units = 2
+    size_2d_unit = 16
+
+    # Steps and Training
+    num_training_steps = 206865
+    progressive_steps = None
+    global_step = 0
+
+    # Other
+    growth_rate = 32
+    num_labeled_samples = 0
+    num_training_steps = 206865
+    l2_reg = 1e-4
+    pick_at_least_per_person = None
+    store_redirect_dataset = False
+    use_apex = False
 
     # data path
     mpiigaze_file = "./dataset/MPIIGaze_128.h5"
     gazecapture_file = "./dataset/GazeCapture_128.h5"
-    columbia_file = ".../Columbia_128.h5"
-    eyediap_file = ".../EYEDIAP_128.h5"
-    gazenet_savepath = ".../baseline_estimator_vgg/"
-    eval_gazenet_savepath = ".../baseline_estimator_resnet/"
+    gazenet_savepath = "output/baseline_estimator_vgg/"
+    eval_gazenet_savepath = "output/baseline_estimator_resnet/"
     save_path = "output/ST-ED/save_2"
     log_path = "output/ST-ED/log_2"
-    batch_size = 2
-    load_step = 0
-    num_2d_units = 2
-    size_2d_unit = 16
 
     # Learning rate
     base_learning_rate = 0.00005

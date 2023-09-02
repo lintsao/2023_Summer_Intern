@@ -19,14 +19,16 @@ from collections import OrderedDict
 
 import torch
 import torch.nn as nn
+from torch import autograd
 import torch.nn.functional as F
 import torch.optim as optim
 import torchvision.transforms as transforms
 
 from models.encoder import Encoder
 from models.decoder import Decoder
-from models.discriminator import PatchGAN
 from models.redirtrans import ReDirTrans_P, ReDirTrans_DP, Fusion_Layer
+from encoder4editing_tmp.models.latent_codes_pool import LatentCodesPool
+from encoder4editing_tmp.models.discriminator import LatentCodesDiscriminator
 import losses
 from models.gazeheadnet import GazeHeadNet
 from models.gazeheadResnet import GazeHeadResNet
@@ -60,7 +62,9 @@ class STED(nn.Module):
         self.lpips = lpips.LPIPS(net='alex').to("cuda")
         self.GazeHeadNet_train = GazeHeadNet().to("cuda") # vGG16 estimator. 
         self.GazeHeadNet_eval = GazeHeadResNet().to("cuda") # ResNet estimator.
-        self.discriminator = PatchGAN(input_nc=3).to('cuda') # Discriminator.
+        self.discriminator = LatentCodesDiscriminator(512, 4).to("cuda")
+        self.real_w_pool = LatentCodesPool(config.w_pool_size)
+        self.fake_w_pool = LatentCodesPool(config.w_pool_size)
 
         self.pretrained_arcface_params = []
         self.redirtrans_params = []
@@ -105,14 +109,15 @@ class STED(nn.Module):
         
         self.redirtrans_optimizer = optim.Adam(self.redirtrans_params, lr=config.lr, weight_decay=config.l2_reg)
         self.fusion_optimizer = optim.Adam(self.fusion_params, lr=config.lr, weight_decay=config.l2_reg)
-        self.optimizers = [self.fusion_optimizer, self.redirtrans_optimizer]
+        self.discriminator_optimizer = torch.optim.Adam(self.discriminator_params, lr=config.w_discriminator_lr)
+        self.optimizers = [self.fusion_optimizer, self.redirtrans_optimizer, self.discriminator_optimizer]
 
         # Wrap optimizer instances with AMP (Compute faster)
         if config.use_apex:
             from apex import amp
             models = [self.pretrained_arcface, self.redirtrans_p, self.redirtrans_dp, self.fusion, self.encoder, self.decoder, self.lpips, self.GazeHeadNet_train, self.GazeHeadNet_eval, self.discriminator]
             models, self.optimizers = amp.initialize(models, self.optimizers, opt_level='O1', num_losses=len(self.optimizers))
-            [self.redirtrans_optimizer, self.fusion_optimizer] = self.optimizers
+            [self.redirtrans_optimizer, self.fusion_optimizer, self.discriminator] = self.optimizers
             [self.pretrained_arcface, self.redirtrans_p, self.redirtrans_dp, self.fusion, self.encoder, self.decoder, self.lpips, self.GazeHeadNet_train, self.GazeHeadNet_eval, self.discriminator] = models
 
         print("Finish model initialization.")
@@ -345,7 +350,6 @@ class STED(nn.Module):
         # e4e transfer, decode image from G.
         output, _ = self.decoder(fusion_f)
         output_256 = F.interpolate(output, size=(256, 256), mode='bilinear', align_corners=False)
-        # print(data['image_b'].shape, output_256.shape)
 
         # Reconstruction image Loss
         losses_dict['l1'] = losses.reconstruction_l1_loss(x=data['image_b'], x_hat=output_256)
@@ -395,7 +399,7 @@ class STED(nn.Module):
 
         total_loss += (losses_dict['gaze_a'] + losses_dict['head_a']) * config.coeff_gaze_loss
 
-        # Discriminator and Genaration loss
+        # Consistency loss
         if config.coeff_embedding_consistency_loss != 0:
             c_a, z_a = self.redirtrans_p(f_a)
             normalized_embeddings_from_a = self.rotate(z_a, c_a, inverse=True)
@@ -412,10 +416,18 @@ class STED(nn.Module):
 
             total_loss += losses_dict['embedding_consistency'] * config.coeff_embedding_consistency_loss
 
+        # D-reg and Adv Loss
+        losses_dict['discriminator'] = self.train_discriminator(data['image_a'])
+        latent = self.forward_latent(data['image_a'])
+        losses_dict['adv_reg'] = self.calc_loss(latent)
+        total_loss += losses_dict['adv_reg']
+
         self.redirtrans_optimizer.zero_grad()
         self.fusion_optimizer.zero_grad()
+        # self.discriminator_optimizer.zero_grad()
 
         if config.use_apex:
+            # with amp.scale_loss(total_loss, [self.redirtrans_optimizer, self.fusion_optimizer, self.discriminator_optimizer]) as scaled_loss:
             with amp.scale_loss(total_loss, [self.redirtrans_optimizer, self.fusion_optimizer]) as scaled_loss:
                 scaled_loss.backward()
         else:
@@ -423,6 +435,7 @@ class STED(nn.Module):
 
         self.redirtrans_optimizer.step()
         self.fusion_optimizer.step()
+        # self.discriminator_optimizer.step()
 
         return losses_dict, output
 
@@ -445,3 +458,136 @@ class STED(nn.Module):
     def clean_up(self):
         self.fusion_optimizer.zero_grad()
         self.redirtrans_optimizer.zero_grad()
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ e4e ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+
+    def get_dims_to_discriminate(self):
+        deltas_starting_dimensions = self.e4e_net.module.encoder.get_deltas_starting_dimensions()
+        return deltas_starting_dimensions[:self.e4e_net.module.encoder.progressive_stage.value + 1]
+    
+    def forward_latent(self, x):
+        x = x.to("cuda").float()
+        _, latent = self.e4e_net.forward(x, return_latents=True)
+        return latent
+    
+    def calc_loss(self, latent):
+        loss_dict = {}
+        loss = 0.0
+        if self.is_training_discriminator():  # Adversarial loss
+            loss_disc = 0.
+            dims_to_discriminate = self.get_dims_to_discriminate() if self.is_progressive_training() else \
+                list(range(self.e4e_net.module.decoder.n_latent))
+
+            for i in dims_to_discriminate:
+                w = latent[:, i, :]
+                fake_pred = self.discriminator(w)
+                loss_disc += F.softplus(-fake_pred).mean()
+            loss_disc /= len(dims_to_discriminate)
+            loss_dict['encoder_discriminator_loss'] = float(loss_disc)
+            loss += config.w_discriminator_lambda * loss_disc
+
+        if config.progressive_steps and self.encoder.progressive_stage.value != 18:  # delta regularization loss
+            total_delta_loss = 0
+            deltas_latent_dims = self.encoder.get_deltas_starting_dimensions()
+
+            first_w = latent[:, 0, :]
+            for i in range(1, self.encoder.progressive_stage.value + 1):
+                curr_dim = deltas_latent_dims[i]
+                delta = latent[:, curr_dim, :] - first_w
+                delta_loss = torch.norm(delta, config.delta_norm, dim=1).mean()
+                loss_dict[f"delta{i}_loss"] = float(delta_loss)
+                total_delta_loss += delta_loss
+            loss_dict['total_delta_loss'] = float(total_delta_loss)
+            loss += config.delta_norm_lambda * total_delta_loss
+
+        loss_dict['loss'] = float(loss)
+        return loss
+
+
+ # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Discriminator ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+
+    @staticmethod
+    def discriminator_loss(real_pred, fake_pred, loss_dict):
+        real_loss = F.softplus(-real_pred).mean() # SoftPlus is a smooth approximation to the ReLU function
+        fake_loss = F.softplus(fake_pred).mean()
+
+        loss_dict['d_real_loss'] = float(real_loss)
+        loss_dict['d_fake_loss'] = float(fake_loss)
+
+        return real_loss + fake_loss
+
+    @staticmethod
+    def discriminator_r1_loss(real_pred, real_w):
+        grad_real, = autograd.grad(
+            outputs=real_pred.sum(), inputs=real_w, create_graph=True
+        )
+        grad_penalty = grad_real.pow(2).reshape(grad_real.shape[0], -1).sum(1).mean()
+
+        return grad_penalty
+
+    @staticmethod
+    def requires_grad(model, flag=True):
+        for p in model.parameters():
+            p.requires_grad = flag
+
+    def train_discriminator(self, x):
+        loss_dict = {}
+        x = x.to("cuda").float()
+        self.requires_grad(self.discriminator, True)
+
+        with torch.no_grad():
+            real_w, fake_w = self.sample_real_and_fake_latents(x)
+        real_pred = self.discriminator(real_w)
+        fake_pred = self.discriminator(fake_w)
+        loss = self.discriminator_loss(real_pred, fake_pred, loss_dict)
+        loss_dict['discriminator_loss'] = float(loss)
+
+        self.discriminator_optimizer.zero_grad()
+        loss.backward()
+        self.discriminator_optimizer.step()
+
+        # r1 regularization
+        d_regularize = config.global_step % config.d_reg_every == 0
+        if d_regularize:
+            real_w = real_w.detach()
+            real_w.requires_grad = True
+            real_pred = self.discriminator(real_w)
+            r1_loss = self.discriminator_r1_loss(real_pred, real_w)
+
+            self.discriminator.zero_grad()
+            r1_final_loss = config.r1 / 2 * r1_loss * config.d_reg_every + 0 * real_pred[0]
+            r1_final_loss.backward()
+            self.discriminator_optimizer.step()
+            loss_dict['discriminator_r1_loss'] = float(r1_final_loss)
+
+        # Reset to previous state
+        self.requires_grad(self.discriminator, False)
+
+        return float(loss), float(r1_final_loss)
+
+    def validate_discriminator(self, x):
+        with torch.no_grad():
+            loss_dict = {}
+            x = x.to("cuda").float()
+            real_w, fake_w = self.sample_real_and_fake_latents(x)
+            real_pred = self.discriminator(real_w)
+            fake_pred = self.discriminator(fake_w)
+            loss = self.discriminator_loss(real_pred, fake_pred, loss_dict)
+            loss_dict['discriminator_loss'] = float(loss)
+            return loss_dict
+
+    def sample_real_and_fake_latents(self, x):
+        sample_z = torch.randn(config.batch_size, 512, device="cuda")
+        real_w = self.e4e_net.module.decoder.get_latent(sample_z)
+        fake_w = self.e4e_net.module.encoder(x)
+        if config.start_from_latent_avg:
+            fake_w = fake_w + self.e4e_net.module.latent_avg.repeat(fake_w.shape[0], 1, 1)
+        if config.is_progressive_training:  # When progressive training, feed only unique w's
+            dims_to_discriminate = self.get_dims_to_discriminate()
+            fake_w = fake_w[:, dims_to_discriminate, :]
+        if config.use_w_pool:
+            real_w = self.real_w_pool.query(real_w)
+            fake_w = self.fake_w_pool.query(fake_w)
+        if fake_w.ndim == 3:
+            fake_w = fake_w[:, 0, :]
+        return real_w, fake_w

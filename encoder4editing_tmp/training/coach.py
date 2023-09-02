@@ -423,15 +423,15 @@ class Coach:
             return loss_dict
 
     def sample_real_and_fake_latents(self, x):
-        sample_z = torch.randn(self.opts.batch_size, 512, device=self.device)
-        real_w = self.net.decoder.get_latent(sample_z)
-        fake_w = self.net.encoder(x)
-        if self.opts.start_from_latent_avg:
+        sample_z = torch.randn(self.batch_size, 512, device=self.device)
+        real_w = self.decoder.get_latent(sample_z)
+        fake_w = self.encoder(x)
+        if self.start_from_latent_avg:
             fake_w = fake_w + self.net.latent_avg.repeat(fake_w.shape[0], 1, 1)
         if self.is_progressive_training():  # When progressive training, feed only unique w's
             dims_to_discriminate = self.get_dims_to_discriminate()
             fake_w = fake_w[:, dims_to_discriminate, :]
-        if self.opts.use_w_pool:
+        if self.use_w_pool:
             real_w = self.real_w_pool.query(real_w)
             fake_w = self.fake_w_pool.query(fake_w)
         if fake_w.ndim == 3:

@@ -36,7 +36,7 @@ class LatentCodesPool:
                 i = random.randint(0, len(w) - 1)  # apply a random latent index as a candidate
                 w = w[i]
             self.handle_w(w, return_ws)
-        return_ws = torch.stack(return_ws, 0)   # collect all the images and return
+        return_ws = torch.stack(return_ws, 0)      # collect all the images and return
         return return_ws
 
     def handle_w(self, w, return_ws):
