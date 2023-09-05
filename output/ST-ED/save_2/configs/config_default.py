@@ -43,14 +43,15 @@ class DefaultConfig(object):
     coeff_perceptual_loss = 1.0
     coeff_redirection_feature_loss = 200.0
     coeff_redirection_gaze_loss = 2.0
+    coeff_redirection_head_loss = 2.0
     r1 = 10
-    w_discriminator_lambda = 0
+    w_discriminator_lambda = 0.0002
 
     # Decay-related
     decay = 0.8
-    decay_steps = 34480
+    decay_steps = 3000
 
-    # Densenet-related
+    # # Densenet-related
     densenet_blocks = 5
 
     # Delta Norm-related
@@ -58,6 +59,7 @@ class DefaultConfig(object):
     delta_norm_lambda = 2e-4
 
     # General Configuration
+    is_training_discriminator = True
     compute_full_result = False
     d_reg_every = 16
     is_progressive_training = True
@@ -65,8 +67,8 @@ class DefaultConfig(object):
     num_data_loaders = 4
     print_freq_test = 5000
     print_freq_train = 200
-    save_freq_images = 5000
-    save_interval = 10000
+    save_freq_images = 1000
+    save_interval = 1000
     semi_supervised = False
     skip_training = False
     start_from_latent_avg = True
@@ -79,7 +81,7 @@ class DefaultConfig(object):
     w_pool_size = 50
 
     # Learning Rates
-    base_learning_rate = 0.00005
+    base_learning_rate = 0.0004
     w_discriminator_lr = 2e-5
 
     # Size-related
@@ -87,29 +89,27 @@ class DefaultConfig(object):
     size_2d_unit = 16
 
     # Steps and Training
-    num_training_steps = 206865
+    # num_training_steps = 206865
+    num_training_steps = 40000
     progressive_steps = None
     global_step = 0
 
     # Other
     growth_rate = 32
     num_labeled_samples = 0
-    num_training_steps = 206865
     l2_reg = 1e-4
     pick_at_least_per_person = None
-    store_redirect_dataset = False
-    use_apex = False
 
-    # data path
+    # Data Paths
     mpiigaze_file = "./dataset/MPIIGaze_128.h5"
     gazecapture_file = "./dataset/GazeCapture_128.h5"
-    gazenet_savepath = "output/baseline_estimator_vgg/"
-    eval_gazenet_savepath = "output/baseline_estimator_resnet/"
-    save_path = "output/ST-ED/save_2"
-    log_path = "output/ST-ED/log_2"
+    pretrained_head_gaze_net_train = "./pretrained_models/baseline_estimator_vgg.tar"
+    pretrained_head_gaze_net_eval = "./pretrained_models/baseline_estimator_resnet.tar"
+    gazenet_savepath = "./output/baseline_estimator_vgg/"
+    eval_gazenet_savepath = "./output/baseline_estimator_resnet/"
+    save_path = "./output/ST-ED/save_2"
+    log_path = "./output/ST-ED/log_2"
 
-    # Learning rate
-    base_learning_rate = 0.00005
     @property
     def lr(self):
         return self.batch_size * self.base_learning_rate

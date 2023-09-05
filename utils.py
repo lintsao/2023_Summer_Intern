@@ -207,13 +207,13 @@ def load_model(network, path):
             new_state_dict[module][new_key] = value
 
 
-    network.redirtrans_p.load_state_dict(checkpoint['redirection_p'])
-    network.redirtrans_dp.load_state_dict(checkpoint['redirection_dp'])
-    network.fusion.load_state_dict(checkpoint['fusion'])
+    network.redirtrans_p.load_state_dict(new_state_dict['redirtrans_p'])
+    network.redirtrans_dp.load_state_dict(new_state_dict['redirtrans_dp'])
+    network.fusion.load_state_dict(new_state_dict['fusion'])
 
     # network.encoder.load_state_dict(checkpoint['redirection'])
     # network.decoder.load_state_dict(checkpoint['decoder'])
-    # network.discriminator.load_state_dict(checkpoint['discriminator'])
+    network.discriminator.load_state_dict(new_state_dict['discriminator'])
 
 
     # network.encoder.load_state_dict(new_state_dict['encoder'])

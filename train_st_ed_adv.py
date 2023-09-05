@@ -29,7 +29,7 @@ script_init_common()
 print(config.save_path)
 
 # Set device
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -50,11 +50,14 @@ with open('./gazecapture_split.json', 'r') as f:
     all_gc_prefixes = json.load(f)
 
 # [gc/val] full set size:              63518
-# [gc/val] current set size:           1 270
+# [gc/val] current set size:            1270
+
 # [gc/test] full set size:            191842
 # [gc/test] current set size:           3836
+
 # [mpi] full set size:                 34790
 # [mpi] current set size:                695
+
 # [gc/train] full set size:          1379083
 # [gc/train] current set size:       1379083
 
@@ -74,8 +77,8 @@ if not config.skip_training:
     # Define multiple val/test datasets for evaluation during training
     for tag, hdf_file, is_bgr, prefixes in [
         ('gc/val', config.gazecapture_file, False, all_gc_prefixes['val']),
-        ('gc/test', config.gazecapture_file, False, all_gc_prefixes['test']),
-        ('mpi', config.mpiigaze_file, False, None),
+        # ('gc/test', config.gazecapture_file, False, all_gc_prefixes['test']),
+        # ('mpi', config.mpiigaze_file, False, None),
     ]:
         # Create evaluation dataset.
         dataset = HDFDataset(hdf_file_path=hdf_file,
@@ -83,7 +86,8 @@ if not config.skip_training:
                              is_bgr=is_bgr,
                              get_2nd_sample=True,
                              pick_at_least_per_person=2)
-        if tag == 'gc/test':
+        # if tag == 'gc/test':
+        if tag == 'gc/val':
             # test pair visualization:
             test_list = def_test_list()
             test_visualize = get_example_images(dataset, test_list)
@@ -225,6 +229,7 @@ def execute_training_step(current_step):
 
     # If doing multi-GPU training, just take an average
     for key, value in loss_dict.items():
+        # print(key, value)
         if value.dim() > 0:
             value = torch.mean(value)
             loss_dict[key] = value
@@ -370,6 +375,8 @@ if config.compute_full_result:
                              is_bgr=is_bgr,
                              get_2nd_sample=True,
                              pick_at_least_per_person=2)
+        logging.info('%10s current set size:        %7d' % (tag, len(dataset)))
+
         if tag == 'gc/test':
             # test pair visualization:
             test_list = def_test_list()

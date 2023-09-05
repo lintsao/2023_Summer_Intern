@@ -10,7 +10,7 @@ class ReDirTrans_P(nn.Module):
 
         self.pseudo = nn.Linear(512 * 18, 64, bias=True)
         self.leaky_relu = nn.LeakyReLU()
-        self.label_branch = nn.Linear(64, 4, bias=True)
+        self.label_branch = nn.Linear(64, 4, bias=True) # Gaze and head label for pitch and yaw.
         self.tanh = nn.Tanh()
 
         self.embedding = nn.Linear(512 * 18, 128, bias=True)
@@ -21,7 +21,7 @@ class ReDirTrans_P(nn.Module):
         flat_pseudo_labels = self.pseudo(input)
         flat_pseudo_labels = self.leaky_relu(flat_pseudo_labels)
         flat_pseudo_labels = self.label_branch(flat_pseudo_labels)
-        flat_pseudo_labels = np.pi / 2 *self.tanh(flat_pseudo_labels) # +- 90 degree
+        flat_pseudo_labels = np.pi / 2 * self.tanh(flat_pseudo_labels) # +- 90 degree
 
         flat_embeddings = self.embedding(input)
         flat_embeddings = self.leaky_relu(flat_embeddings)
@@ -30,7 +30,7 @@ class ReDirTrans_P(nn.Module):
         # Split the pseudo labels and embeddings up
         pseudo_labels = []
         idx_pl = 0
-        for dof, num_feats in self.configuration:
+        for dof, num_feats in self.configuration: # [(2, 16)] do2: 16
             if (idx_pl * dof <= 4):
                 pseudo_label = flat_pseudo_labels[:, idx_pl:(idx_pl + dof)]
                 pseudo_labels.append(pseudo_label)
@@ -38,7 +38,7 @@ class ReDirTrans_P(nn.Module):
 
         embeddings = []
         idx_e = 0
-        for dof, num_feats in self.configuration:
+        for dof, num_feats in self.configuration: # [(2, 16)] do2: 16
             if (idx_e * dof <= 96):
                 len_embedding = (dof + 1) * num_feats
                 flat_embedding = flat_embeddings[:, idx_e:(idx_e + len_embedding)]
@@ -64,10 +64,10 @@ class ReDirTrans_DP(nn.Module):
         return x
     
 class Fusion_Layer(nn.Module):
-    def __init__(self):
+    def __init__(self, num):
         super(Fusion_Layer, self).__init__()
-
-        self.fc1 = nn.Linear(512 * 18, 512, bias=True)
+        self.num = num
+        self.fc1 = nn.Linear(512 * 18, 512 * num, bias=True)
 
     def forward(self, input):
         x = self.fc1(input)

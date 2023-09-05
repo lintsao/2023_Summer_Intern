@@ -1,6 +1,6 @@
 {
     "mpiigaze_file": "./dataset/MPIIGaze_128.h5",
-    "gazecapture_file": "./dataset/MPIIGaze_128.h5",
+    "gazecapture_file": "./dataset/GazeCapture_128.h5",
     "gazenet_savepath": "output/baseline_estimator_vgg/",
     "eval_gazenet_savepath": "output/baseline_estimator_resnet/",
     "save_path": "output/ST-ED/save_2",
@@ -26,11 +26,10 @@
     "coeff_redirection_feature_loss": 200.0,
     "coeff_redirection_gaze_loss": 2.0,
     "use_mixing": true,
-    "densenet_blocks":5,
     "base_learning_rate": 0.00005,
     "use_apex": false,
     "compute_full_result": true,
-    "load_step": 70000,
+    "load_step": 1000,
     "store_redirect_dataset": false,
     "semi_supervised":false
 }

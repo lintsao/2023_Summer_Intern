@@ -63,9 +63,9 @@ class pSp(nn.Module):
             # normalize with respect to the center of an average face
             if self.opts.start_from_latent_avg:
                 if codes.ndim == 2:
-                    codes = codes + self.latent_avg.repeat(codes.shape[0], 1, 1)[:, 0, :]
+                    codes = codes.to("cuda") + self.latent_avg.repeat(codes.shape[0], 1, 1)[:, 0, :].to("cuda")
                 else:
-                    codes = codes + self.latent_avg.repeat(codes.shape[0], 1, 1)
+                    codes = codes.to("cuda") + self.latent_avg.repeat(codes.shape[0], 1, 1).to("cuda")
 
         if latent_mask is not None:
             for i in latent_mask:

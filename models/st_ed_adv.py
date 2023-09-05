@@ -39,30 +39,37 @@ import torch.nn.functional as F
 import lpips
 
 config = DefaultConfig()
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class STED(nn.Module):
 
     def __init__(self):
         super(STED, self).__init__()
         self.configuration = []
+
+        ##########################################################################################################
+        # No need in pretrained feature extraction. The feature space is 512 * 18 (18 means the different attributes. We do not know which one is for the gaze and head redirection.)
         self.configuration += ([(2, config.size_2d_unit)] * config.num_2d_units) # [(2, 16)] do2: 16
 
         self.num_all_pseudo_labels = np.sum([dof for dof, _ in self.configuration]) # 2
         self.num_all_embedding_features = np.sum([(dof + 1) * num_feats for dof, num_feats in self.configuration]) # 3 * 16 = 48
+        ##########################################################################################################
 
         self.e4e_net, self.pretrained_arcface, self.e4e_transforms, self.r50_transform = load_pretrained_model()
 
-        self.redirtrans_p = ReDirTrans_P(configuration=self.configuration).to("cuda")
-        self.redirtrans_dp = ReDirTrans_DP(configuration=self.configuration).to("cuda")
-        self.fusion = Fusion_Layer().to("cuda")
+        self.redirtrans_p = ReDirTrans_P(configuration=self.configuration).to(device)
+        self.redirtrans_dp = ReDirTrans_DP(configuration=self.configuration).to(device)
+        self.fusion = Fusion_Layer(num=1).to(device)
 
-        self.encoder = Encoder(self.num_all_pseudo_labels, self.num_all_embedding_features, self.configuration, self.e4e_net.encoder).to("cuda")
-        self.decoder = Decoder(self.num_all_embedding_features, self.e4e_net.decoder).to("cuda")
+        self.encoder = Encoder(self.num_all_pseudo_labels, self.num_all_embedding_features, self.configuration, self.e4e_net.encoder).to(device)
+        self.decoder = Decoder(self.num_all_embedding_features, self.e4e_net.decoder).to(device)
 
-        self.lpips = lpips.LPIPS(net='alex').to("cuda")
-        self.GazeHeadNet_train = GazeHeadNet().to("cuda") # vGG16 estimator. 
-        self.GazeHeadNet_eval = GazeHeadResNet().to("cuda") # ResNet estimator.
-        self.discriminator = LatentCodesDiscriminator(512, 4).to("cuda")
+        self.lpips = lpips.LPIPS(net='alex').to(device)
+        self.GazeHeadNet_train = GazeHeadNet().to(device) # vGG16 estimator. 
+        self.GazeHeadNet_train.load_state_dict(torch.load(config.pretrained_head_gaze_net_train))
+        self.GazeHeadNet_eval = GazeHeadResNet().to(device) # ResNet estimator.
+        self.GazeHeadNet_eval.load_state_dict(torch.load(config.pretrained_head_gaze_net_eval))
+        self.discriminator = LatentCodesDiscriminator(512, 4).to(device)
         self.real_w_pool = LatentCodesPool(config.w_pool_size)
         self.fake_w_pool = LatentCodesPool(config.w_pool_size)
 
@@ -104,8 +111,6 @@ class STED(nn.Module):
             param.requires_grad = False
         for param in self.GazeHeadNet_eval_params:
             param.requires_grad = False
-        for param in self.discriminator_params:
-            param.requires_grad = False
         
         self.redirtrans_optimizer = optim.Adam(self.redirtrans_params, lr=config.lr, weight_decay=config.l2_reg)
         self.fusion_optimizer = optim.Adam(self.fusion_params, lr=config.lr, weight_decay=config.l2_reg)
@@ -144,7 +149,7 @@ class STED(nn.Module):
             matrices = torch.transpose(matrices, 1, 2)
         return matrices
 
-    def rotate(self, embeddings, pseudo_labels, rotate_or_not=None, inverse=False):
+    def rotate(self, embeddings, pseudo_labels, inverse=False):
         # For gaze or head.
         rotation_matrices = []
 
@@ -173,7 +178,7 @@ class STED(nn.Module):
         f_a = self.encoder(data['image_a']) # [batch, 9216]
         c_a, z_a = self.redirtrans_p(f_a) # [2, batch, 2], [2, batch, 3, 16]
 
-        ''' Metric 1'''
+        ''' Metric 1: Angular Loss with gt labels.'''
         losses_dict['gaze_a'] = losses.gaze_angular_loss(y=data['gaze_a'], y_hat=c_a[-1]) # gaze: -1
         losses_dict['head_a'] = losses.gaze_angular_loss(y=data['head_a'], y_hat=c_a[-2]) # head: -2
 
@@ -191,7 +196,10 @@ class STED(nn.Module):
         idx = 0
 
         for dof, _ in self.configuration:
-            random_angle = (torch.rand(batch_size, dof).to("cuda") - 0.5) * np.pi * 0.2 # [batch, 2]
+            if dof == idx:
+                break
+            
+            random_angle = (torch.rand(batch_size, dof).to(device) - 0.5) * np.pi * 0.2 # [batch, 2]
             random_angle += c_a[idx] # move head or gaze.
 
             # Check degree of freedom
@@ -218,13 +226,13 @@ class STED(nn.Module):
             # Get the predicted angle.
             gaze_random_a, head_random_a = self.GazeHeadNet_eval(output_random_a_256)
 
-            ''' Metric 2'''
+            ''' Metric 2: Disentanglement error'''
             if idx == config.num_2d_units - 2:  # test head
                 losses_dict['head_to_gaze'] = losses.gaze_angular_loss(gaze_rec_a, gaze_random_a)
             if idx == config.num_2d_units - 1:  # test gaze
                 losses_dict['gaze_to_head'] = losses.gaze_angular_loss(head_rec_a, head_random_a)
 
-            ''' Metric 3'''
+            ''' Metric 3: ID'''
             emb_inversion = self.pretrained_arcface(self.r50_transform(output_rec_a_256))
             emb_target = self.pretrained_arcface(self.r50_transform(data['image_b']))
             emb_ouput_256 = self.pretrained_arcface(self.r50_transform(output_random_a_256))
@@ -267,7 +275,7 @@ class STED(nn.Module):
             transfer_f_b = f_a + delta_f_b - delta_f_a
             fusion_f = self.fusion(transfer_f_b).permute(1, 0, 2) # [batch, 1, 512]
 
-            output, _ = self.e4e_net.decoder(fusion_f) # [batch, 3, 1024, 1024]
+            output, _ = self.decoder(fusion_f) # [batch, 3, 1024, 1024]
             output_256 = F.interpolate(output, size=(256, 256), mode='bilinear', align_corners=False) # [batch, 3, 256, 256]
             output_dict['image_b_hat'] = output_256
 
@@ -319,47 +327,57 @@ class STED(nn.Module):
             param.requires_grad = True
         for param in self.fusion_params:
             param.requires_grad = True
+        for param in self.discriminator_params:
+            param.requires_grad = True
 
         batch_size = data['image_a'].shape[0] # data: dict_keys(['key', 'image_a', 'gaze_a', 'head_a', 'image_b', 'gaze_b', 'head_b'])
+        
+        # Step 1: Image transformation.
         data['image_a'] = self.e4e_transforms(data['image_a'])
         data['image_b'] = self.e4e_transforms(data['image_b'])
 
+        # Step 2: Get the pretrained feature
         f_a = self.encoder(data['image_a']) # [batch, 9216]
         f_b = self.encoder(data['image_b']) # [batch, 9216]
- 
+
+        # Step 3: Get the condition and the embedding
         c_a, z_a = self.redirtrans_p(f_a) # [2, batch, 2], [2, batch, 3, 16]
         c_b, z_b = self.redirtrans_p(f_b) # [2, batch, 2], [2, batch, 3, 16]
+        
+        # Step 4: Transfer.
+        # Step 4.1: Transfer to canonical tensor.
+        z_n = self.rotate(z_a, c_a, inverse=True)
 
-        # a -> b
-        z_n = self.rotate(z_a, c_a, inverse=True) # Transfer to canonical tensor.
-
+        # Step 4.2: Transfer to target tensor.
         transfer_z_b = self.rotate(z_n, c_b, inverse=False) # Transfer to target tensor.
 
+        # Step 5: get the delta embedding.
         reshaped_tensors = [tensor.view(batch_size, -1) for tensor in transfer_z_b]
         transfer_z_b = torch.cat((reshaped_tensors[0], reshaped_tensors[1]), dim=1)
-        delta_f_b = self.redirtrans_dp(transfer_z_b)
+        delta_f_b = self.redirtrans_dp(transfer_z_b) # [batch, 9216]
 
         reshaped_tensors = [tensor.view(batch_size, -1) for tensor in z_a]
         z_a = torch.cat((reshaped_tensors[0], reshaped_tensors[1]), dim=1)
-        delta_f_a = self.redirtrans_dp(z_a)
+        delta_f_a = self.redirtrans_dp(z_a) # [batch, 9216]
 
+        # Step 6: Feature editting and calculate the weight.
         transfer_f_b = f_a + delta_f_b - delta_f_a
+        fusion_f = self.fusion(transfer_f_b).permute(1, 0, 2) # [batch, layers, 512]
 
-        fusion_f = self.fusion(transfer_f_b).permute(1, 0, 2) # [batch, 1, 512]
-
-        # e4e transfer, decode image from G.
+        # Step 7: e4e transfer, decode image from G.
         output, _ = self.decoder(fusion_f)
         output_256 = F.interpolate(output, size=(256, 256), mode='bilinear', align_corners=False)
 
-        # Reconstruction image Loss
+        ############################## Loss ##############################
+        # Loss 1: Reconstruction image Loss
         losses_dict['l1'] = losses.reconstruction_l1_loss(x=data['image_b'], x_hat=output_256)
         total_loss = losses_dict['l1'] * config.coeff_l1_loss
 
-        # Perceptual Loss
+        # Loss 2: Perceptual Loss
         losses_dict['perceptual'] = torch.mean(self.lpips(data['image_b'], output_256))
         total_loss += losses_dict['perceptual'] * config.coeff_perceptual_loss
 
-        # Gaze and Head attr Loss from Img
+        # Loss 3: Gaze and Head attr Loss from Img
         feature_h, gaze_h, head_h = self.GazeHeadNet_train(output_256, True)
         feature_t, gaze_t, head_t = self.GazeHeadNet_train(data['image_b'], True)
         losses_dict['redirection_feature_loss'] = 0
@@ -373,10 +391,10 @@ class STED(nn.Module):
         # print(f"gaze_redirection_loss: {losses_dict['gaze_redirection']}")
 
         losses_dict['head_redirection'] = losses.gaze_angular_loss(y=head_t.detach(), y_hat=head_h)
-        total_loss += losses_dict['head_redirection'] * config.coeff_redirection_gaze_loss
+        total_loss += losses_dict['head_redirection'] * config.coeff_redirection_head_loss
         # print(f"head_redirection_loss: {losses_dict['head_redirection']}")
 
-        # ID Loss
+        # Loss 4: ID Loss
         emb_target = self.pretrained_arcface(self.r50_transform(data['image_b']))
         emb_ouput_256 = self.pretrained_arcface(self.r50_transform(output_256))
         losses_dict['id'] = (1.0 - torch.mean(
@@ -384,7 +402,7 @@ class STED(nn.Module):
                                     emb_ouput_256, dim=-1)))
         total_loss += losses_dict['id'] * config.coeff_id_loss
 
-        # Gaze and Head angle Loss from label
+        # Loss 5: Gaze and Head angle Loss from label
         if not config.semi_supervised:
             losses_dict['gaze_a'] = (losses.gaze_angular_loss(y=data['gaze_a'], y_hat=c_a[-1]) +
                                  losses.gaze_angular_loss(y=data['gaze_b'], y_hat=c_b[-1]))/2
@@ -399,7 +417,7 @@ class STED(nn.Module):
 
         total_loss += (losses_dict['gaze_a'] + losses_dict['head_a']) * config.coeff_gaze_loss
 
-        # Consistency loss
+        # Loss 6: Consistency loss
         if config.coeff_embedding_consistency_loss != 0:
             c_a, z_a = self.redirtrans_p(f_a)
             normalized_embeddings_from_a = self.rotate(z_a, c_a, inverse=True)
@@ -416,19 +434,20 @@ class STED(nn.Module):
 
             total_loss += losses_dict['embedding_consistency'] * config.coeff_embedding_consistency_loss
 
-        # D-reg and Adv Loss
-        losses_dict['discriminator'] = self.train_discriminator(data['image_a'])
+        # Loss 7: D-reg and Adv Loss
+        losses_dict['discriminator_loss'], losses_dict['discriminator_r1_loss'] = self.train_discriminator(data['image_a'])
         latent = self.forward_latent(data['image_a'])
         losses_dict['adv_reg'] = self.calc_loss(latent)
         total_loss += losses_dict['adv_reg']
 
+        # Step 8: Optimize.
         self.redirtrans_optimizer.zero_grad()
         self.fusion_optimizer.zero_grad()
-        # self.discriminator_optimizer.zero_grad()
+        self.discriminator_optimizer.zero_grad()
 
         if config.use_apex:
             # with amp.scale_loss(total_loss, [self.redirtrans_optimizer, self.fusion_optimizer, self.discriminator_optimizer]) as scaled_loss:
-            with amp.scale_loss(total_loss, [self.redirtrans_optimizer, self.fusion_optimizer]) as scaled_loss:
+            with amp.scale_loss(total_loss, [self.redirtrans_optimizer, self.fusion_optimizer, self.discriminator]) as scaled_loss:
                 scaled_loss.backward()
         else:
             total_loss.backward()
@@ -441,23 +460,55 @@ class STED(nn.Module):
 
     def redirect(self, data):
         output_dict = OrderedDict()
-        pseudo_labels_a, embeddings_a = self.encoder(data['image_a'])
 
-        gaze_embedding = torch.matmul(self.rotation_matrix_2d(data['gaze_b_r'], False),
-                                  torch.matmul(self.rotation_matrix_2d(pseudo_labels_a[-1], True),
-                                               embeddings_a[-1]))
-        head_embedding = torch.matmul(self.rotation_matrix_2d(data['head_b_r'], False),
-                                  torch.matmul(self.rotation_matrix_2d(pseudo_labels_a[-2], True),
-                                               embeddings_a[-2]))
-        embeddings_a_to_b = embeddings_a[:-2]
-        embeddings_a_to_b.append(head_embedding)
-        embeddings_a_to_b.append(gaze_embedding)
-        output_dict['image_b_hat_r'] = self.decoder(embeddings_a_to_b)
+        batch_size = data['image_a'].shape[0] # data: dict_keys(['key', 'image_a', 'gaze_a', 'head_a', 'image_b', 'gaze_b', 'head_b'])
+
+        # Step 1: Image transformation.
+        data['image_a'] = self.e4e_transforms(data['image_a'])
+
+        # Step 2: Get the pretrained feature
+        f_a = self.encoder(data['image_a']) # [batch, 9216]
+
+        # Step 3: Get the condition and the embedding
+        c_a, z_a = self.redirtrans_p(f_a) # [2, batch, 2], [2, batch, 3, 16]
+        
+        # Step 4: Transfer.
+        z_b_new_gaze = torch.matmul(self.rotation_matrix_2d(data['gaze_b_r'], False),
+                                        torch.matmul(self.rotation_matrix_2d(c_a[-1], True),
+                                                    z_a[-1])) # [batch, 3, 16]
+        
+        z_b_new_head = torch.matmul(self.rotation_matrix_2d(data['head_b_r'], False),
+                                        torch.matmul(self.rotation_matrix_2d(c_a[-2], True),
+                                                    z_a[-2])) # [batch, 3, 16]
+        
+        transfer_z_b = z_a[:-2]
+        transfer_z_b.append(z_b_new_head)
+        transfer_z_b.append(z_b_new_gaze)
+
+        # Step 5: get the delta embedding.
+        reshaped_tensors = [tensor.view(batch_size, -1) for tensor in transfer_z_b]
+        transfer_z_b = torch.cat((reshaped_tensors[0], reshaped_tensors[1]), dim=1)
+        delta_f_b = self.redirtrans_dp(transfer_z_b) # [batch, 9216]
+
+        reshaped_tensors = [tensor.view(batch_size, -1) for tensor in z_a]
+        z_a = torch.cat((reshaped_tensors[0], reshaped_tensors[1]), dim=1)
+        delta_f_a = self.redirtrans_dp(z_a) # [batch, 9216]
+
+        # Step 6: Feature editting and calculate the weight.
+        transfer_f_b = f_a + delta_f_b - delta_f_a
+        fusion_f = self.fusion(transfer_f_b).permute(1, 0, 2) # [batch, layers, 512]
+
+        # Step 7: e4e transfer, decode image from G.
+        output, _ = self.decoder(fusion_f)
+        # output_256 = F.interpolate(output, size=(256, 256), mode='bilinear', align_corners=False)
+        output_dict['image_b_hat_r'] = output
+
         return output_dict
 
     def clean_up(self):
         self.fusion_optimizer.zero_grad()
         self.redirtrans_optimizer.zero_grad()
+        self.discriminator_optimizer.zero_grad()
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ e4e ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 
@@ -466,16 +517,16 @@ class STED(nn.Module):
         return deltas_starting_dimensions[:self.e4e_net.module.encoder.progressive_stage.value + 1]
     
     def forward_latent(self, x):
-        x = x.to("cuda").float()
+        x = x.to(device).float()
         _, latent = self.e4e_net.forward(x, return_latents=True)
         return latent
     
     def calc_loss(self, latent):
         loss_dict = {}
         loss = 0.0
-        if self.is_training_discriminator():  # Adversarial loss
+        if config.is_training_discriminator:  # Adversarial loss
             loss_disc = 0.
-            dims_to_discriminate = self.get_dims_to_discriminate() if self.is_progressive_training() else \
+            dims_to_discriminate = self.get_dims_to_discriminate() if config.is_progressive_training else \
                 list(range(self.e4e_net.module.decoder.n_latent))
 
             for i in dims_to_discriminate:
@@ -532,7 +583,7 @@ class STED(nn.Module):
 
     def train_discriminator(self, x):
         loss_dict = {}
-        x = x.to("cuda").float()
+        x = x.to(device).float()
         self.requires_grad(self.discriminator, True)
 
         with torch.no_grad():
@@ -540,7 +591,7 @@ class STED(nn.Module):
         real_pred = self.discriminator(real_w)
         fake_pred = self.discriminator(fake_w)
         loss = self.discriminator_loss(real_pred, fake_pred, loss_dict)
-        loss_dict['discriminator_loss'] = float(loss)
+        loss_dict['discriminator_loss'] = torch.tensor([float(loss)])
 
         self.discriminator_optimizer.zero_grad()
         loss.backward()
@@ -558,17 +609,17 @@ class STED(nn.Module):
             r1_final_loss = config.r1 / 2 * r1_loss * config.d_reg_every + 0 * real_pred[0]
             r1_final_loss.backward()
             self.discriminator_optimizer.step()
-            loss_dict['discriminator_r1_loss'] = float(r1_final_loss)
+            loss_dict['discriminator_r1_loss'] = torch.tensor([float(r1_final_loss)])
 
         # Reset to previous state
         self.requires_grad(self.discriminator, False)
 
-        return float(loss), float(r1_final_loss)
+        return loss_dict['discriminator_loss'], loss_dict['discriminator_r1_loss']
 
     def validate_discriminator(self, x):
         with torch.no_grad():
             loss_dict = {}
-            x = x.to("cuda").float()
+            x = x.to(device).float()
             real_w, fake_w = self.sample_real_and_fake_latents(x)
             real_pred = self.discriminator(real_w)
             fake_pred = self.discriminator(fake_w)
@@ -577,11 +628,11 @@ class STED(nn.Module):
             return loss_dict
 
     def sample_real_and_fake_latents(self, x):
-        sample_z = torch.randn(config.batch_size, 512, device="cuda")
+        sample_z = torch.randn(config.batch_size, 512, device=device)
         real_w = self.e4e_net.module.decoder.get_latent(sample_z)
         fake_w = self.e4e_net.module.encoder(x)
         if config.start_from_latent_avg:
-            fake_w = fake_w + self.e4e_net.module.latent_avg.repeat(fake_w.shape[0], 1, 1)
+            fake_w = fake_w.to(device) + self.e4e_net.module.latent_avg.repeat(fake_w.shape[0], 1, 1).to(device)
         if config.is_progressive_training:  # When progressive training, feed only unique w's
             dims_to_discriminate = self.get_dims_to_discriminate()
             fake_w = fake_w[:, dims_to_discriminate, :]
