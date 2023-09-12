@@ -19,3 +19,8 @@ gdown --id "$baseline_estimator_vgg_file_id" -O "pretrained_models/baseline_esti
 gdown --id "$e4e_file_id" -O "pretrained_models/e4e_ffhq_encode.pt"
 
 gdown --id "$r50_file_id" -O "pretrained_models/r50_backbone.pth"
+
+wget http://dlib.net/files/shape_predictor_68_face_landmarks.dat.bz2
+bzip2 -dk shape_predictor_68_face_landmarks.dat.bz2
+mv shape_predictor_68_face_landmarks.dat pretrained_models/
+rm shape_predictor_68_face_landmarks.dat.bz2

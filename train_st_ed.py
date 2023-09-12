@@ -20,7 +20,7 @@ from dataset import HDFDataset
 from utils import save_images, worker_init_fn, send_data_dict_to_gpu, recover_images, def_test_list, RunningStatistics,\
     adjust_learning_rate, script_init_common, get_example_images, save_model, load_model
 from core import DefaultConfig
-from models import STED
+from models.st_ed import STED
 logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
 
 
@@ -40,7 +40,7 @@ if not config.skip_training:
     if not os.path.exists(config.save_path):
         os.makedirs(config.save_path)
     # save configurations
-    config.write_file_contents(config.save_path)
+    # config.write_file_contents(config.save_path)
 
 # Create the train and test datasets.
 all_data = OrderedDict()
@@ -73,9 +73,9 @@ if not config.skip_training:
     
     # Define multiple val/test datasets for evaluation during training
     for tag, hdf_file, is_bgr, prefixes in [
-        ('gc/val', config.gazecapture_file, False, all_gc_prefixes['val']),
+        # ('gc/val', config.gazecapture_file, False, all_gc_prefixes['val']),
         ('gc/test', config.gazecapture_file, False, all_gc_prefixes['test']),
-        ('mpi', config.mpiigaze_file, False, None),
+        # ('mpi', config.mpiigaze_file, False, None),
     ]:
         # Create evaluation dataset.
         dataset = HDFDataset(hdf_file_path=hdf_file,
@@ -166,10 +166,10 @@ if config.load_step != 0:
 # Transfer on the GPU before constructing and optimizer
 if torch.cuda.device_count() > 1:
     logging.info('Using %d GPUs!' % torch.cuda.device_count())
-    network.encoder = nn.DataParallel(network.encoder)
-    network.decoder = nn.DataParallel(network.decoder)
-    network.redirtrans_p = nn.DataParallel(network.redirtrans_p)
-    network.redirtrans_dp = nn.DataParallel(network.redirtrans_dp)
+    # network.encoder = nn.DataParallel(network.encoder)
+    # network.decoder = nn.DataParallel(network.decoder)
+    # network.redirtrans_p = nn.DataParallel(network.redirtrans_p)
+    # network.redirtrans_dp = nn.DataParallel(network.redirtrans_dp)
     network.fusion = nn.DataParallel(network.fusion)
     network.discriminator = nn.DataParallel(network.discriminator)
     network.GazeHeadNet_eval = nn.DataParallel(network.GazeHeadNet_eval)
@@ -199,8 +199,8 @@ def execute_training_step(current_step):
     input = send_data_dict_to_gpu(input, device)
 
     network.train()
-    network.encoder.eval()
-    network.decoder.eval()
+    # network.encoder.eval()
+    # network.decoder.eval()
     network.GazeHeadNet_eval.eval()
     network.GazeHeadNet_train.eval()
     network.lpips.eval()
@@ -208,19 +208,6 @@ def execute_training_step(current_step):
 
     # forward + backward + optimize
     loss_dict, generated = network.optimize(input, current_step)
-
-    # save training samples in tensorboard (Comment it to avoid the error)
-    # if config.use_tensorboard and current_step % config.save_freq_images == 0 and current_step != 0:
-    #     for image_index in range(len(input['image_a'])):
-    #         tensorboard.add_image('train/input_image',
-    #                               torch.clamp((input['image_a'][image_index] + 1) * (255.0 / 2.0), 0, 255).type(
-    #                                   torch.cuda.ByteTensor), current_step)
-    #         tensorboard.add_image('train/target_image',
-    #                               torch.clamp((input['image_b'][image_index] + 1) * (255.0 / 2.0), 0, 255).type(
-    #                                   torch.cuda.ByteTensor), current_step)
-    #         tensorboard.add_image('train/generated_image',
-    #                               torch.clamp((generated[image_index] + 1) * (255.0 / 2.0), 0, 255).type(
-    #                                   torch.cuda.ByteTensor), current_step)
 
     # If doing multi-GPU training, just take an average
     for key, value in loss_dict.items():

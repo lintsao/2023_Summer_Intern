@@ -21,19 +21,18 @@ from encoder4editing_tmp.models.psp import pSp  # we use the pSp framework to lo
 
 config = DefaultConfig()
 
-device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class Encoder(nn.Module):
 
-    def __init__(self, num_all_pseudo_labels, num_all_embedding_features, configuration, pretrained_encoder):
+    def __init__(self, pretrained_encoder):
         super(Encoder, self).__init__()
 
         self.encoder = pretrained_encoder
 
     def forward(self, image):
-        
         x = self.encoder(image) # image: [batch, 3, 256, 256]
         batch_size = x.shape[0]
-        x = x.contiguous().view(batch_size, -1)
+        x = x.contiguous().view(batch_size, -1) # image: [batch, 512 * 18]
 
         return x

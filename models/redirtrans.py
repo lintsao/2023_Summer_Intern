@@ -7,15 +7,15 @@ class ReDirTrans_P(nn.Module):
     def __init__(self, configuration):
         super(ReDirTrans_P, self).__init__()
         self.configuration = configuration
+        self.one_embedding_size = 3 * 16
 
-        self.pseudo = nn.Linear(512 * 18, 64, bias=True)
+        self.pseudo = nn.Linear(512 * 18, 96, bias=True)
         self.leaky_relu = nn.LeakyReLU()
-        self.label_branch = nn.Linear(64, 4, bias=True) # Gaze and head label for pitch and yaw.
+        self.label_branch = nn.Linear(96, 4, bias=True) # Gaze and head label for pitch and yaw.
         self.tanh = nn.Tanh()
 
-        self.embedding = nn.Linear(512 * 18, 128, bias=True)
-        self.leaky_relu = nn.LeakyReLU()
-        self.branch = nn.Linear(128, 96, bias=True)
+        self.embedding = nn.Linear(512 * 18, 96, bias=True)
+        self.branch = nn.Linear(96, self.one_embedding_size * 2, bias=True)
 
     def forward(self, input):
         flat_pseudo_labels = self.pseudo(input)
@@ -39,7 +39,7 @@ class ReDirTrans_P(nn.Module):
         embeddings = []
         idx_e = 0
         for dof, num_feats in self.configuration: # [(2, 16)] do2: 16
-            if (idx_e * dof <= 96):
+            if (idx_e * dof <= self.one_embedding_size * 2):
                 len_embedding = (dof + 1) * num_feats
                 flat_embedding = flat_embeddings[:, idx_e:(idx_e + len_embedding)]
                 embedding = flat_embedding.reshape(-1, dof + 1, num_feats)
@@ -51,10 +51,11 @@ class ReDirTrans_P(nn.Module):
 class ReDirTrans_DP(nn.Module):
     def __init__(self, configuration):
         super(ReDirTrans_DP, self).__init__()
+        self.one_embedding_size = 3 * 16
 
-        self.fc1 = nn.Linear(96, 256, bias=True)
+        self.fc1 = nn.Linear(self.one_embedding_size * 2, 128, bias=True)
         self.leaky_relu = nn.LeakyReLU()
-        self.fc2 = nn.Linear(256, 512 * 18, bias=True)
+        self.fc2 = nn.Linear(128, 512 * 18, bias=True)
 
     def forward(self, input):
         x = self.fc1(input)
@@ -67,7 +68,7 @@ class Fusion_Layer(nn.Module):
     def __init__(self, num):
         super(Fusion_Layer, self).__init__()
         self.num = num
-        self.fc1 = nn.Linear(512 * 18, 512 * num, bias=True)
+        self.fc1 = nn.Linear(512 * 18, 512 * self.num, bias=True)
 
     def forward(self, input):
         x = self.fc1(input)

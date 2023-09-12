@@ -23,7 +23,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class Decoder(nn.Module):
 
-    def __init__(self, num_all_embedding_features, pretrained_decoder):
+    def __init__(self, pretrained_decoder):
         super(Decoder, self).__init__()
 
         self.decoder = pretrained_decoder

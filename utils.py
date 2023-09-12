@@ -12,7 +12,10 @@ from core import DefaultConfig
 import h5py
 config = DefaultConfig()
 import argparse
-
+from torchvision import transforms
+import PIL
+import PIL.Image
+from torchvision.utils import save_image
 
 def worker_init_fn(worker_id):
     # Custom worker init to not repeat pairs
@@ -25,43 +28,21 @@ def send_data_dict_to_gpu(data, device):
             data[k] = v.detach().to(device, non_blocking=True)
     return data
 
+def save_images(x, path, fromTransformTensor=False):
 
-def save_images(save_path, walks, keys, cycle=True):
-    num_walks_per_sample = len(walks)
-    num_img_per_walk = len(walks[0])
-    num_samples = walks[0][0].shape[0]
-    size = walks[0][0].shape[2:4]
-    size = size[::-1]
-    for i in range(num_samples):
-        path = os.path.join(save_path, str(keys[i]))
-        if not os.path.isdir(path):
-            os.makedirs(path)
-        for j in range(num_walks_per_sample):
-            frames = [recover_images(walks[j][k][i]) for k in range(num_img_per_walk)]
-            if cycle:
-                frames += frames[::-1]  # continue in reverse
-            clip = cv2.VideoWriter('%s/%s.avi' % (path, str(j)), cv2.VideoWriter_fourcc('M', 'P', 'E', 'G'), 20, size, True)
-            for k in range(len(frames)):
-                clip.write(frames[k])
-            clip.release()
-
-
-def recover_images(x):
-    # Every specified iterations save sample images
-    # Note: We're doing this separate to Tensorboard to control which input
-    #       samples we visualize, and also because Tensorboard is an inefficient
-    #       way to store such images.
-    x = x.cpu().numpy()
-    x = (x + 1.0) * (255.0 / 2.0)
-    x = np.clip(x, 0, 255)  # Avoid artifacts due to slight under/overflow
-    x = x.astype(np.uint8)
-    if len(x.shape) == 4:
-        x = np.transpose(x, [0, 2, 3, 1])  # CHW to HWC
-        x = x[:, :, :, ::-1]  # RGB to BGR for OpenCV
+    if fromTransformTensor:
+        # var shape: (3, H, W)
+        x = x.cpu().detach().transpose(0, 2).transpose(0, 1).numpy()
+        x = ((x + 1) / 2)
+        x[x < 0] = 0
+        x[x > 1] = 1
+        x = x * 255
+        x = PIL.Image.fromarray(x.astype('uint8'), mode='RGB')
+        x.save(path)
     else:
-        x = np.transpose(x, [1, 2, 0])  # CHW to HWC
-        x = x[:, :, ::-1]  # RGB to BGR for OpenCV
-    return x
+        x = x.cpu().numpy().astype('uint8')
+        x = PIL.Image.fromarray(x.astype('uint8'), mode='RGB')
+        x.save(path)
 
 
 def def_test_list():
@@ -83,14 +64,19 @@ def def_test_list():
     # test_list.append({'key': '00319', 'idx_a': 1220, 'idx_b': 2700})
     # test_list.append({'key': '03366', 'idx_a': 177, 'idx_b': 27})
     # test_list.append({'key': '03404', 'idx_a': 361, 'idx_b': 640})
-    test_list.append({'key': '00563', 'idx_a': 37, 'idx_b': 1810})
-    test_list.append({'key': '00616', 'idx_a': 1840, 'idx_b': 280})
-    test_list.append({'key': '00646', 'idx_a': 601, 'idx_b': 1793})
-    test_list.append({'key': '00654', 'idx_a': 301, 'idx_b': 728})
-    test_list.append({'key': '00777', 'idx_a': 451, 'idx_b': 293})
+    # test_list.append({'key': '00563', 'idx_a': 37, 'idx_b': 1810})
+    # test_list.append({'key': '00616', 'idx_a': 1840, 'idx_b': 280})
+    # test_list.append({'key': '00646', 'idx_a': 601, 'idx_b': 1793})
+    # test_list.append({'key': '00654', 'idx_a': 301, 'idx_b': 728})
+    # test_list.append({'key': '00777', 'idx_a': 451, 'idx_b': 293})
     # test_list.append({'key': '00796', 'idx_a': 662, 'idx_b': 1470})
     # test_list.append({'key': '00935', 'idx_a': 73, 'idx_b': 773})
     # test_list.append({'key': '00953', 'idx_a': 512, 'idx_b': 1519})
+    test_list.append({'key': '00178', 'idx_a': 0, 'idx_b': 1})
+    test_list.append({'key': '00190', 'idx_a': 0, 'idx_b': 2})
+    test_list.append({'key': '02348', 'idx_a': 0, 'idx_b': 3})
+    test_list.append({'key': '02833', 'idx_a': 0, 'idx_b': 4})
+    test_list.append({'key': '02966', 'idx_a': 0, 'idx_b': 5})
     return test_list
 
 
@@ -110,18 +96,20 @@ def get_example_images(dataset, test_list):
         idx_b = item['idx_b']
         eyes_a, g_a, h_a = retrieve(group_a, idx_a)
         eyes_b, g_b, h_b = retrieve(group_b, idx_b)
+
         entry = {
             'key': torch.tensor(int(key), dtype=torch.int),
             'idx_a': torch.tensor(idx_a, dtype=torch.int),
             'idx_b': torch.tensor(idx_b, dtype=torch.int),
-            'image_a': torch.tensor(eyes_a, dtype=torch.float),
+            'image_a': transform_image(eyes_a.astype(np.uint8)),
             'gaze_a': torch.tensor(g_a, dtype=torch.float),
             'head_a': torch.tensor(h_a, dtype=torch.float),
-            'image_b': torch.tensor(eyes_b, dtype=torch.float),
+            'image_b': transform_image(eyes_b.astype(np.uint8)),
             'gaze_b': torch.tensor(g_b, dtype=torch.float),
             'head_b': torch.tensor(h_b, dtype=torch.float),
         }
         entries.append(entry)
+
     test_visualize = {}
     for k in ['key', 'idx_a', 'idx_b', 'image_a', 'gaze_a', 'head_a', 'image_b', 'gaze_b', 'head_b']:
         if k in entries[0]:
@@ -130,13 +118,17 @@ def get_example_images(dataset, test_list):
     input_images = test_visualize['image_a']
     target_images = test_visualize['image_b']
     keys = test_visualize['key']
+
     for i in range(len(input_images)):
         name = str(keys[i].cpu().numpy())
         path = os.path.join(config.save_path, 'samples', name)
         if not os.path.exists(path):
             os.makedirs(path)
-        cv2.imwrite(os.path.join(path, 'input_image.png'), recover_images(input_images[i]))
-        cv2.imwrite(os.path.join(path, 'target_image.png'), recover_images(target_images[i]))
+
+        save_images(input_images[i], os.path.join(path, 'input_image.png'), fromTransformTensor=True)
+        save_images(target_images[i], os.path.join(path, 'target_image.png'), fromTransformTensor=True)
+        # cv2.imwrite(os.path.join(path, 'input_image.png'), recover_images(input_images[i]))
+        # cv2.imwrite(s.path.join(path, 'input_image.png'), recover_images(target_images[i]))
     return test_visualize
 
 
@@ -219,3 +211,50 @@ def load_model(network, path):
     # network.encoder.load_state_dict(new_state_dict['encoder'])
     # network.decoder.load_state_dict(new_state_dict['decoder'])
     # network.discriminator.load_state_dict(new_state_dict['discriminator'])
+
+def recover_images(x):
+    # Every specified iterations save sample images
+    # Note: We're doing this separate to Tensorboard to control which input
+    #       samples we visualize, and also because Tensorboard is an inefficient
+    #       way to store such images.
+
+    # x = denormalize(x).cpu().numpy()
+    x = x.cpu().numpy()
+    # x = (x + 1.0) * (255.0 / 2.0)
+    x = np.clip(x, 0, 255)  # Avoid artifacts due to slight under/overflow
+    x = x.astype(np.uint8)
+    if len(x.shape) == 4:
+        x = np.transpose(x, [0, 2, 3, 1])  # CHW to HWC
+        x = x[:, :, :, ::-1]  # RGB to BGR for OpenCV
+    else:
+        x = np.transpose(x, [1, 2, 0])  # CHW to HWC
+        x = x[:, :, ::-1]  # RGB to BGR for OpenCV
+    return x
+
+# def save_images(save_path, walks, keys, cycle=True):
+#     num_walks_per_sample = len(walks)
+#     num_img_per_walk = len(walks[0])
+#     num_samples = walks[0][0].shape[0]
+#     size = walks[0][0].shape[2:4]
+#     size = size[::-1]
+#     for i in range(num_samples):
+#         path = os.path.join(save_path, str(keys[i]))
+#         if not os.path.isdir(path):
+#             os.makedirs(path)
+#         for j in range(num_walks_per_sample):
+#             frames = [recover_images(walks[j][k][i]) for k in range(num_img_per_walk)]
+#             if cycle:
+#                 frames += frames[::-1]  # continue in reverse
+#             clip = cv2.VideoWriter('%s/%s.avi' % (path, str(j)), cv2.VideoWriter_fourcc('M', 'P', 'E', 'G'), 20, size, True)
+#             for k in range(len(frames)):
+#                 clip.write(frames[k])
+#             clip.release()
+
+def transform_image(input):
+    transform = transforms.Compose([
+        # transforms.Resize((256, 256)),
+        transforms.ToTensor(),
+        transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+    ])
+
+    return transform(input)

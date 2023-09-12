@@ -22,6 +22,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import torchvision.transforms as transforms
+from torchvision.utils import save_image
+import cv2
 
 from models.encoder import Encoder
 from models.decoder import Decoder
@@ -36,6 +38,8 @@ import numpy as np
 import torch.nn.functional as F
 import lpips
 
+from utils import *
+
 config = DefaultConfig()
 
 class STED(nn.Module):
@@ -48,14 +52,14 @@ class STED(nn.Module):
         self.num_all_pseudo_labels = np.sum([dof for dof, _ in self.configuration]) # 2
         self.num_all_embedding_features = np.sum([(dof + 1) * num_feats for dof, num_feats in self.configuration]) # 3 * 16 = 48
 
-        self.e4e_net, self.pretrained_arcface, self.e4e_transforms, self.r50_transform = load_pretrained_model()
+        self.e4e_net, self.pretrained_arcface, self.e4e_transforms, self.r50_transform = load_pretrained_model(load_e4e_pretrained=True)
 
         self.redirtrans_p = ReDirTrans_P(configuration=self.configuration).to("cuda")
         self.redirtrans_dp = ReDirTrans_DP(configuration=self.configuration).to("cuda")
-        self.fusion = Fusion_Layer().to("cuda")
+        self.fusion = Fusion_Layer(num=1).to("cuda")
 
-        self.encoder = Encoder(self.num_all_pseudo_labels, self.num_all_embedding_features, self.configuration, self.e4e_net.encoder).to("cuda")
-        self.decoder = Decoder(self.num_all_embedding_features, self.e4e_net.decoder).to("cuda")
+        self.encoder = Encoder(self.e4e_net.encoder).to("cuda")
+        self.decoder = Decoder(self.e4e_net.decoder).to("cuda")
 
         self.lpips = lpips.LPIPS(net='alex').to("cuda")
         self.GazeHeadNet_train = GazeHeadNet().to("cuda") # vGG16 estimator. 
@@ -105,6 +109,7 @@ class STED(nn.Module):
         
         self.redirtrans_optimizer = optim.Adam(self.redirtrans_params, lr=config.lr, weight_decay=config.l2_reg)
         self.fusion_optimizer = optim.Adam(self.fusion_params, lr=config.lr, weight_decay=config.l2_reg)
+        self.generator_optimizer = optim.Adam(self.generator_params, lr=config.lr, weight_decay=config.l2_reg)
         self.optimizers = [self.fusion_optimizer, self.redirtrans_optimizer]
 
         # Wrap optimizer instances with AMP (Compute faster)
@@ -112,7 +117,8 @@ class STED(nn.Module):
             from apex import amp
             models = [self.pretrained_arcface, self.redirtrans_p, self.redirtrans_dp, self.fusion, self.encoder, self.decoder, self.lpips, self.GazeHeadNet_train, self.GazeHeadNet_eval, self.discriminator]
             models, self.optimizers = amp.initialize(models, self.optimizers, opt_level='O1', num_losses=len(self.optimizers))
-            [self.redirtrans_optimizer, self.fusion_optimizer] = self.optimizers
+            # [self.redirtrans_optimizer, self.fusion_optimizer] = self.optimizers
+            [self.redirtrans_optimizer, self.fusion_optimizer, self.decodergenerator_optimizer] = self.optimizers
             [self.pretrained_arcface, self.redirtrans_p, self.redirtrans_dp, self.fusion, self.encoder, self.decoder, self.lpips, self.GazeHeadNet_train, self.GazeHeadNet_eval, self.discriminator] = models
 
         print("Finish model initialization.")
@@ -159,6 +165,7 @@ class STED(nn.Module):
     def forward(self, data):
         output_dict = OrderedDict()
         losses_dict = OrderedDict()
+        cv2.imwrite('input_image.png', recover_images(data['image_a'][0]))
         
         # Encode input from a
         batch_size = data['image_a'].shape[0]
@@ -314,8 +321,11 @@ class STED(nn.Module):
             param.requires_grad = True
         for param in self.fusion_params:
             param.requires_grad = True
+        for param in self.generator_params:
+            param.requires_grad = True
 
         batch_size = data['image_a'].shape[0] # data: dict_keys(['key', 'image_a', 'gaze_a', 'head_a', 'image_b', 'gaze_b', 'head_b'])
+        # cv2.imwrite('input_image.png', recover_images(data['image_a'][0]))
         data['image_a'] = self.e4e_transforms(data['image_a'])
         data['image_b'] = self.e4e_transforms(data['image_b'])
 
@@ -340,11 +350,13 @@ class STED(nn.Module):
 
         transfer_f_b = f_a + delta_f_b - delta_f_a
 
-        fusion_f = self.fusion(transfer_f_b).permute(1, 0, 2) # [batch, 1, 512]
+        fusion_f = self.fusion(transfer_f_b).permute(1, 0, 2) # [batch, -1, 512]
 
         # e4e transfer, decode image from G.
-        output, _ = self.decoder(fusion_f)
+        # output, _ = self.decoder(fusion_f)
+        output, _ = self.decoder(torch.randn(1, 18, 512).cuda())
         output_256 = F.interpolate(output, size=(256, 256), mode='bilinear', align_corners=False)
+        cv2.imwrite('output_image.png', recover_images(output_256[0].detach()))
         # print(data['image_b'].shape, output_256.shape)
 
         # Reconstruction image Loss
@@ -355,22 +367,22 @@ class STED(nn.Module):
         losses_dict['perceptual'] = torch.mean(self.lpips(data['image_b'], output_256))
         total_loss += losses_dict['perceptual'] * config.coeff_perceptual_loss
 
-        # Gaze and Head attr Loss from Img
-        feature_h, gaze_h, head_h = self.GazeHeadNet_train(output_256, True)
-        feature_t, gaze_t, head_t = self.GazeHeadNet_train(data['image_b'], True)
-        losses_dict['redirection_feature_loss'] = 0
-        for i in range(len(feature_h)):
-            losses_dict['redirection_feature_loss'] += nn.functional.mse_loss(feature_h[i], feature_t[i].detach())
-        total_loss += losses_dict['redirection_feature_loss'] * config.coeff_redirection_feature_loss
-        # print(f"redirection_feature_loss: {losses_dict['redirection_feature_loss']}")
+        # # Gaze and Head attr Loss from Img
+        # feature_h, gaze_h, head_h = self.GazeHeadNet_train(output_256, True)
+        # feature_t, gaze_t, head_t = self.GazeHeadNet_train(data['image_b'], True)
+        # losses_dict['redirection_feature_loss'] = 0
+        # for i in range(len(feature_h)):
+        #     losses_dict['redirection_feature_loss'] += nn.functional.mse_loss(feature_h[i], feature_t[i].detach())
+        # total_loss += losses_dict['redirection_feature_loss'] * config.coeff_redirection_feature_loss
+        # # print(f"redirection_feature_loss: {losses_dict['redirection_feature_loss']}")
 
-        losses_dict['gaze_redirection'] = losses.gaze_angular_loss(y=gaze_t.detach(), y_hat=gaze_h)
-        total_loss += losses_dict['gaze_redirection'] * config.coeff_redirection_gaze_loss
-        # print(f"gaze_redirection_loss: {losses_dict['gaze_redirection']}")
+        # losses_dict['gaze_redirection'] = losses.gaze_angular_loss(y=gaze_t.detach(), y_hat=gaze_h)
+        # total_loss += losses_dict['gaze_redirection'] * config.coeff_redirection_gaze_loss
+        # # print(f"gaze_redirection_loss: {losses_dict['gaze_redirection']}")
 
-        losses_dict['head_redirection'] = losses.gaze_angular_loss(y=head_t.detach(), y_hat=head_h)
-        total_loss += losses_dict['head_redirection'] * config.coeff_redirection_gaze_loss
-        # print(f"head_redirection_loss: {losses_dict['head_redirection']}")
+        # losses_dict['head_redirection'] = losses.gaze_angular_loss(y=head_t.detach(), y_hat=head_h)
+        # total_loss += losses_dict['head_redirection'] * config.coeff_redirection_gaze_loss
+        # # print(f"head_redirection_loss: {losses_dict['head_redirection']}")
 
         # ID Loss
         emb_target = self.pretrained_arcface(self.r50_transform(data['image_b']))
@@ -380,20 +392,20 @@ class STED(nn.Module):
                                     emb_ouput_256, dim=-1)))
         total_loss += losses_dict['id'] * config.coeff_id_loss
 
-        # Gaze and Head angle Loss from label
-        if not config.semi_supervised:
-            losses_dict['gaze_a'] = (losses.gaze_angular_loss(y=data['gaze_a'], y_hat=c_a[-1]) +
-                                 losses.gaze_angular_loss(y=data['gaze_b'], y_hat=c_b[-1]))/2
-            losses_dict['head_a'] = (losses.gaze_angular_loss(y=data['head_a'], y_hat=c_a[-2]) +
-                                 losses.gaze_angular_loss(y=data['head_b'], y_hat=c_b[-2]))/2
-        else:
-            losses_dict['gaze_a'] = losses.gaze_angular_loss(y=data['gaze_a'], y_hat=c_a[-1])
-            losses_dict['head_a'] = losses.gaze_angular_loss(y=data['head_a'], y_hat=c_a[-2])
+        # # Gaze and Head angle Loss from label
+        # if not config.semi_supervised:
+        #     losses_dict['gaze_a'] = (losses.gaze_angular_loss(y=data['gaze_a'], y_hat=c_a[-1]) +
+        #                          losses.gaze_angular_loss(y=data['gaze_b'], y_hat=c_b[-1]))/2
+        #     losses_dict['head_a'] = (losses.gaze_angular_loss(y=data['head_a'], y_hat=c_a[-2]) +
+        #                          losses.gaze_angular_loss(y=data['head_b'], y_hat=c_b[-2]))/2
+        # else:
+        #     losses_dict['gaze_a'] = losses.gaze_angular_loss(y=data['gaze_a'], y_hat=c_a[-1])
+        #     losses_dict['head_a'] = losses.gaze_angular_loss(y=data['head_a'], y_hat=c_a[-2])
 
-            losses_dict['gaze_a_unlabeled'] = losses.gaze_angular_loss(y=data['gaze_b'], y_hat=c_b[-1])
-            losses_dict['head_a_unlabeled'] = losses.gaze_angular_loss(y=data['head_b'], y_hat=c_b[-2])
+        #     losses_dict['gaze_a_unlabeled'] = losses.gaze_angular_loss(y=data['gaze_b'], y_hat=c_b[-1])
+        #     losses_dict['head_a_unlabeled'] = losses.gaze_angular_loss(y=data['head_b'], y_hat=c_b[-2])
 
-        total_loss += (losses_dict['gaze_a'] + losses_dict['head_a']) * config.coeff_gaze_loss
+        # total_loss += (losses_dict['gaze_a'] + losses_dict['head_a']) * config.coeff_gaze_loss
 
         # Discriminator and Genaration loss
         if config.coeff_embedding_consistency_loss != 0:
@@ -414,15 +426,17 @@ class STED(nn.Module):
 
         self.redirtrans_optimizer.zero_grad()
         self.fusion_optimizer.zero_grad()
+        # self.generator_optimizer.zero_grad()
 
         if config.use_apex:
-            with amp.scale_loss(total_loss, [self.redirtrans_optimizer, self.fusion_optimizer]) as scaled_loss:
+            with amp.scale_loss(total_loss, [self.redirtrans_optimizer, self.fusion_optimizer, self.generator_optimizer]) as scaled_loss:
                 scaled_loss.backward()
         else:
             total_loss.backward()
 
         self.redirtrans_optimizer.step()
         self.fusion_optimizer.step()
+        # self.generator_optimizer.step()
 
         return losses_dict, output
 

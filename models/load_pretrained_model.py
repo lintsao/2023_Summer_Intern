@@ -10,7 +10,7 @@ import numpy as np
 
 
 
-def load_pretrained_model():
+def load_pretrained_model(load_e4e_pretrained = True):
     EXPERIMENT_DATA_ARGS = {
         "e4e": "pretrained_models/e4e_ffhq_encode.pt",
         "r50": "pretrained_models/r50_backbone.pth"
@@ -19,17 +19,23 @@ def load_pretrained_model():
     # Setup required image transformations
     EXPERIMENT_ARGS = EXPERIMENT_DATA_ARGS
     EXPERIMENT_ARGS['e4e_transform'] = transforms.Compose([
-        # transforms.ToTensor(),
         transforms.Resize((256, 256)),
-        transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])])
+        transforms.ToTensor(),
+        transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+        ])
+    
     EXPERIMENT_ARGS['r50_transform'] = transforms.Compose([
         # transforms.ToTensor(),
         transforms.Resize((112, 112))])
 
     ckpt = torch.load(EXPERIMENT_ARGS['e4e'], map_location='cuda')
     opts = ckpt['opts']
-    opts['checkpoint_path'] = EXPERIMENT_ARGS['e4e']
-    opts= Namespace(**opts)
+    if load_e4e_pretrained:
+        opts['checkpoint_path'] = EXPERIMENT_ARGS['e4e']
+    else:
+        opts['checkpoint_path'] = None
+
+    opts = Namespace(**opts)
     e4e_net = pSp(opts)
     e4e_net.eval()
     e4e_net.cuda()

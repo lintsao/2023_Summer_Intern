@@ -6,9 +6,14 @@ class LatentCodesDiscriminator(nn.Module):
         super().__init__()
 
         self.style_dim = style_dim
-
         layers = []
-        for i in range(n_mlp-1):
+
+        #####
+        layers.append(nn.Linear(512 * 18, style_dim))
+        #####
+
+        # for i in range(n_mlp-1):
+        for i in range(n_mlp-2):
             layers.append(
                 nn.Linear(style_dim, style_dim)
             )

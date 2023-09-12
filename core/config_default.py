@@ -40,6 +40,7 @@ class DefaultConfig(object):
     coeff_gaze_loss = 5.0
     coeff_id_loss = 1.0
     coeff_l1_loss = 200.0
+    coeff_l2_loss = 1.0
     coeff_perceptual_loss = 1.0
     coeff_redirection_feature_loss = 200.0
     coeff_redirection_gaze_loss = 2.0

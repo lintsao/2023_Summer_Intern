@@ -30,6 +30,10 @@ def reconstruction_l1_loss(x, x_hat):
     loss_fn = nn.L1Loss(reduction='mean')
     return loss_fn(x.detach(), x_hat)
 
+def reconstruction_l2_loss(x, x_hat):
+    loss_fn = nn.MSELoss(reduction='mean')
+    return loss_fn(x.detach(), x_hat)
+
 
 def nn_angular_distance(a, b):
     sim = F.cosine_similarity(a, b, eps=1e-6)

@@ -8,12 +8,17 @@ import torch
 from torch import nn
 import numpy as np
 from torch.utils.data import Dataset
+import torchvision.transforms as transforms
 
 import cv2
 import h5py
 from core import DefaultConfig
 import random
 import logging
+import PIL
+import PIL.Image
+import sys
+from utils import *
 
 logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
 config = DefaultConfig()
@@ -97,23 +102,23 @@ class HDFDataset(Dataset):
             self.hdf = None
 
     def preprocess_image(self, image):
-        if self.is_bgr:
-            ycrcb = cv2.cvtColor(image, cv2.COLOR_BGR2YCrCb)
-        else:
-            ycrcb = cv2.cvtColor(image, cv2.COLOR_RGB2YCrCb)
-        ycrcb[:, :, 0] = cv2.equalizeHist(ycrcb[:, :, 0])
-        image = cv2.cvtColor(ycrcb, cv2.COLOR_YCrCb2RGB)
-        image = np.transpose(image, [2, 0, 1])  # Colour image
-        image = 2.0 * image / 255.0 - 1
         return image
 
     def preprocess_entry(self, entry):
         for key, val in entry.items():
             if isinstance(val, np.ndarray):
-                entry[key] = torch.from_numpy(val.astype(np.float32))
+                # print(val.shape) # [256, 256, 3]
+                if 'image' in key:
+                    entry[key] = self.transform_image(val.astype(np.uint8))
+                else:
+                    entry[key] = torch.from_numpy(val.astype(np.float32))
             elif isinstance(val, int):
                 # NOTE: maybe ints should be signed and 32-bits sometimes
-                entry[key] = torch.tensor(val, dtype=torch.long, requires_grad=False)
+                # entry[key] = torch.tensor(val, dtype=torch.long, requires_grad=False)
+                if 'image' in key:
+                    entry[key] = self.transform_image(val.astype(np.uint8))
+                else:
+                    entry[key] = torch.tensor(val, dtype=torch.long, requires_grad=False)
         return entry
 
     def __getitem__(self, idx):
@@ -130,6 +135,7 @@ class HDFDataset(Dataset):
             g = group['labels'][index, :2]
             h = group['labels'][index, 2:4]
             return eyes, g, h
+        
         # Grab 1st (input) entry
         eyes_a, g_a, h_a = retrieve(group_a, idx_a)
         entry = {
@@ -138,6 +144,7 @@ class HDFDataset(Dataset):
             'gaze_a': g_a,
             'head_a': h_a,
         }
+
         if self.sample_target_label:
             entry['gaze_b_r'] = self.gaze[self.index_of_sample]
             entry['head_b_r'] = self.head[self.index_of_sample]
@@ -155,5 +162,66 @@ class HDFDataset(Dataset):
             entry['image_b'] = eyes_b
             entry['gaze_b'] = g_b
             entry['head_b'] = h_b
-        return self.preprocess_entry(entry)
 
+        return self.preprocess_entry(entry)
+    
+    def transform_image(self, input):
+        transform = transforms.Compose([
+            # transforms.Resize((256, 256)),
+            transforms.ToTensor(),
+            transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+        ])
+
+        return transform(input)
+    
+    # def recover_images(x):
+    #     # Every specified iterations save sample images
+    #     # Note: We're doing this separate to Tensorboard to control which input
+    #     #       samples we visualize, and also because Tensorboard is an inefficient
+    #     #       way to store such images.
+    #     # mean = (0.5, 0.5, 0.5)
+    #     # std = (0.5, 0.5, 0.5)
+    #     # denormalize = transforms.Normalize(
+    #     #     mean=(-mean[0] / std[0], -mean[1] / std[1], -mean[2] / std[2]),
+    #     #     std=(1.0 / std[0], 1.0 / std[1], 1.0 / std[2])
+    #     # )
+
+    #     # x = denormalize(x).cpu().numpy()
+    #     x = x.cpu().numpy()
+    #     # x = (x + 1.0) * (255.0 / 2.0)
+    #     x = np.clip(x, 0, 255)  # Avoid artifacts due to slight under/overflow
+    #     x = x.astype(np.uint8)
+    #     if len(x.shape) == 4:
+    #         x = np.transpose(x, [0, 2, 3, 1])  # CHW to HWC
+    #         x = x[:, :, :, ::-1]  # RGB to BGR for OpenCV
+    #     else:
+    #         x = np.transpose(x, [1, 2, 0])  # CHW to HWC
+    #         x = x[:, :, ::-1]  # RGB to BGR for OpenCV
+    #     return x
+        
+    # def preprocess_image(self, image):
+    #     # breakpoint()
+    #     # image = PIL.Image.fromarray(np.array(image))
+    #     # image.save("test.png")
+    #     # cv2.imwrite('input_image_inv.png', image)
+    #     # sys.exit()
+    #     if self.is_bgr:
+    #         ycrcb = cv2.cvtColor(image, cv2.COLOR_BGR2YCrCb)
+    #     else:
+    #         ycrcb = cv2.cvtColor(image, cv2.COLOR_RGB2YCrCb)
+    #     ycrcb[:, :, 0] = cv2.equalizeHist(ycrcb[:, :, 0])
+    #     image = cv2.cvtColor(ycrcb, cv2.COLOR_YCrCb2RGB)
+    #     # cv2.imwrite('input_image_inv.png', image)
+    #     image = np.transpose(image, [2, 0, 1])  # Colour image
+    #     # cv2.imwrite('input_image_inv.png', image)
+    #     # image = 2.0 * image / 255.0 - 1
+    #     return image
+
+    # def run_alignment(self, image_path):
+    #     import dlib
+    #     from encoder4editing_tmp.utils.alignment import align_face
+    #     predictor = dlib.shape_predictor("./pretrained_models/shape_predictor_68_face_landmarks.dat")
+    #     aligned_image = align_face(filepath=image_path, predictor=predictor)
+    #     print("Aligned image has shape: {}".format(aligned_image.size))
+
+    #     return aligned_image

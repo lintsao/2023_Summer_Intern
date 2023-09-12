@@ -40,7 +40,7 @@ if not config.skip_training:
     if not os.path.exists(config.save_path):
         os.makedirs(config.save_path)
     # save configurations
-    config.write_file_contents(config.save_path)
+    # config.write_file_contents(config.save_path)
 
 # Create the train and test datasets.
 all_data = OrderedDict()
@@ -77,8 +77,8 @@ if not config.skip_training:
     # Define multiple val/test datasets for evaluation during training
     for tag, hdf_file, is_bgr, prefixes in [
         ('gc/val', config.gazecapture_file, False, all_gc_prefixes['val']),
-        # ('gc/test', config.gazecapture_file, False, all_gc_prefixes['test']),
-        # ('mpi', config.mpiigaze_file, False, None),
+        ('gc/test', config.gazecapture_file, False, all_gc_prefixes['test']),
+        ('mpi', config.mpiigaze_file, False, None),
     ]:
         # Create evaluation dataset.
         dataset = HDFDataset(hdf_file_path=hdf_file,
@@ -170,10 +170,8 @@ if config.load_step != 0:
 # Transfer on the GPU before constructing and optimizer
 if torch.cuda.device_count() > 1:
     logging.info('Using %d GPUs!' % torch.cuda.device_count())
-    network.encoder = nn.DataParallel(network.encoder)
-    network.decoder = nn.DataParallel(network.decoder)
-    network.redirtrans_p = nn.DataParallel(network.redirtrans_p)
-    network.redirtrans_dp = nn.DataParallel(network.redirtrans_dp)
+    # network.redirtrans_p = nn.DataParallel(network.redirtrans_p)
+    # network.redirtrans_dp = nn.DataParallel(network.redirtrans_dp)
     network.fusion = nn.DataParallel(network.fusion)
     network.discriminator = nn.DataParallel(network.discriminator)
     network.GazeHeadNet_eval = nn.DataParallel(network.GazeHeadNet_eval)
@@ -204,8 +202,7 @@ def execute_training_step(current_step):
     input = send_data_dict_to_gpu(input, device)
 
     network.train()
-    network.encoder.eval()
-    network.decoder.eval()
+    network.e4e_net.eval()
     network.GazeHeadNet_eval.eval()
     network.GazeHeadNet_train.eval()
     network.lpips.eval()
@@ -272,10 +269,13 @@ def execute_visualize(data):
         path = os.path.join(config.save_path, 'samples', str(keys[i]))
         if not os.path.exists(path):
             os.makedirs(path)
-        cv2.imwrite(os.path.join(path, 'redirect_' + str(current_step) + '.png'),
-                    recover_images(output_dict['image_b_hat'][i]))
-        cv2.imwrite(os.path.join(path, 'redirect_all_' + str(current_step) + '.png'),
-                    recover_images(output_dict['image_b_hat_all'][i]))
+
+        save_images(output_dict['image_b_hat'][i], os.path.join(path, 'redirect_' + str(current_step)) + '.png', fromTransformTensor=True)
+        save_images(output_dict['image_b_hat_all'][i], os.path.join(path, 'redirect_all_' + str(current_step) + '.png'), fromTransformTensor=True)
+        # cv2.imwrite(os.path.join(path, 'redirect_' + str(current_step) + '.png'),
+        #             recover_images(output_dict['image_b_hat'][i]))
+        # cv2.imwrite(os.path.join(path, 'redirect_all_' + str(current_step) + '.png'),
+        #             recover_images(output_dict['image_b_hat_all'][i]))
     # walks = network.latent_walk(test_visualize)
     # save_images(os.path.join(config.save_path, 'samples'), walks, keys, cycle=True)
 
