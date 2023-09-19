@@ -37,7 +37,7 @@ class DefaultConfig(object):
     coeff_disentangle_embedding_loss = 2.0
     coeff_disentangle_pseudo_label_loss = 2.0
     coeff_embedding_consistency_loss = 2.0
-    coeff_gaze_loss = 5.0
+    coeff_gaze_head_label_loss = 5.0
     coeff_id_loss = 1.0
     coeff_l1_loss = 200.0
     coeff_l2_loss = 1.0
@@ -61,7 +61,7 @@ class DefaultConfig(object):
 
     # General Configuration
     is_training_discriminator = True
-    compute_full_result = False
+    compute_full_result = True
     d_reg_every = 16
     is_progressive_training = True
     load_step = 0
@@ -111,9 +111,22 @@ class DefaultConfig(object):
     save_path = "./output/ST-ED/save_2"
     log_path = "./output/ST-ED/log_2"
 
+    # Redirect Inference
+    input_path = ""
+    redirect_path = "./output/redirect"
+    checkpoint_path = "./output/ST-ED/save_4/checkpoints/40000.pt"
+    # Rad (Degrees × (π / 180))
+    head_pitch = 0.0
+    head_yaw = 0.0
+    gaze_pitch = 0.0
+    gaze_yaw = 0.0
+    preprocess = False
+
     @property
     def lr(self):
-        return self.batch_size * self.base_learning_rate
+        lr = self.batch_size * self.base_learning_rate
+        # print(lr, self.batch_size)
+        return lr 
     # Available strategies:
     #     'exponential': step function with exponential decay
     #     'cyclic':      spiky down-up-downs (with exponential decay of peaks)

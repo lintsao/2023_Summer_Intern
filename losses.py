@@ -47,8 +47,14 @@ def pitchyaw_to_vector(pitchyaws):
     return torch.stack([cos[:, 0] * sin[:, 1], sin[:, 0], cos[:, 0] * cos[:, 1]], 1)
 
 
+# def gaze_angular_loss(y, y_hat):
+#     y = pitchyaw_to_vector(y)
+#     y_hat = pitchyaw_to_vector(y_hat)
+#     loss = nn_angular_distance(y, y_hat)
+#     return torch.mean(loss)
+
 def gaze_angular_loss(y, y_hat):
     y = pitchyaw_to_vector(y)
     y_hat = pitchyaw_to_vector(y_hat)
-    loss = nn_angular_distance(y, y_hat)
+    loss = 1 - F.cosine_similarity(y, y_hat, eps=1e-6)
     return torch.mean(loss)
