@@ -5,5 +5,5 @@ output
 src.tar
 ours
 dataset
-faze_preprocess_tmp
+faze_preprocess_tmp/output_sted
 ...
