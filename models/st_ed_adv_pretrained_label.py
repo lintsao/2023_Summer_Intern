@@ -29,10 +29,10 @@ config = DefaultConfig()
 
 class STED(nn.Module):
 
-    def __init__(self):
+    def __init__(self, device="cpu"):
         super(STED, self).__init__()
         self.configuration = []
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device
 
         ##########################################################################################################
         # No need in pretrained feature extraction. The feature space is 512 * 18 (18 means the different attributes. We do not know which one is for the gaze and head redirection.)
@@ -43,6 +43,8 @@ class STED(nn.Module):
         ##########################################################################################################
 
         self.e4e_net, self.pretrained_arcface, self.e4e_transforms, self.r50_transform = load_pretrained_model(load_e4e_pretrained=True)
+        self.e4e_net.to(self.device)
+        self.pretrained_arcface.to(self.device)
 
         self.redirtrans_p = ReDirTrans_P(configuration=self.configuration).to(self.device)
         self.redirtrans_dp = ReDirTrans_DP(configuration=self.configuration).to(self.device)
@@ -326,7 +328,7 @@ class STED(nn.Module):
         f_b = self.e4e_net.module.encoder(data['image_b_inv']).contiguous().view(batch_size, -1) # [batch, 9216]
 
         _, gaze_a, head_a = self.GazeHeadNet_train(data['image_a_inv'], True)
-        _, gaze_b, head_b = self.GazeHeadNet_train(data['image_a_inv'], True)
+        _, gaze_b, head_b = self.GazeHeadNet_train(data['image_b_inv'], True)
 
         # Step 3: Get the condition and the embedding
         c_a, z_a = self.redirtrans_p(f_a) # [2, batch, 2], [2, batch, 3, 16]
