@@ -14,17 +14,17 @@ pip install -r requirements.txt
 ```
  
 To pre-process datasets, please follow the instructions of [this repository](https://github.com/swook/faze_preprocess). 
-Note that we use full-face images with size 128x128.
+Note that we use full-face images with size 256 * 256. The face images are aligned with the face alignment from e4e work.
 
-You can download the preprocessed data of GazeCapture and MPIIGaze
+<!-- You can download the preprocessed data of GazeCapture and MPIIGaze
 - [GazeCapture](https://drive.google.com/file/d/1hYgs770CcwLLD9Z7H-cjV8QzvMGVE9CS/view?usp=sharing)
-- [MPIIGaze](https://drive.google.com/file/d/120zI6mZPr28SEm5jdHNuBXeHkEvC8Qu2/view?usp=sharing)
+- [MPIIGaze](https://drive.google.com/file/d/120zI6mZPr28SEm5jdHNuBXeHkEvC8Qu2/view?usp=sharing) -->
 
-or directly use the bash file to download the dataset.
+<!-- or directly use the bash file to download the dataset.
 
 ```
 bash download_preprocessed_dataset.sh
-```
+``` -->
 
 To use the pre-trained models (e.g. VGG gaze estimator, ResNet gaze estimator for evaluation, e4e encoder, and insight-face r50 recognition model), you can download the preprocessed data of GazeCapture and MPIIGaze
 - [VGG gaze estimator](https://drive.google.com/file/d/1amWI-1mrVIRLgUntnvBwuAj3Nn9ktiq9/view?usp=sharing)
@@ -130,7 +130,7 @@ The order of application are:
 To train the gaze redirection model in the paper, run this command:
 
 ```
-python train_st_ed.py config/ST-ED.json
+python3 train_st_ed_adv_pretrained_label.py config/ST-ED_adv.json
 ```
 
 Or use the **train_st_ed.ipynb** file to check the training details step-by-step
@@ -152,7 +152,13 @@ Training of the redirector will take 1-2 days on a single GPU.
 To evaluate the pre-trained full model, run:
 
 ```
-python train_st_ed.py config/eval.json
+python train_st_ed_adv_pretrained_label.py config/eval.json
+```
+
+or use certain image with certain target gaze / head label.
+
+```
+python inference.py config/ST-ED_adv.json
 ```
 
 Quantitative evaluation of all test datasets will take a few hours. If you want to speed up the process, try to disable the calculation of disentanglement metrics, or evaluate on partial dataset (this is what we do during training!)
