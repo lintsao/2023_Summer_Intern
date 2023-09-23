@@ -1,6 +1,6 @@
 {
     "batch_size": 2,
-    "eval_batch_size": 4,
+    "eval_batch_size": 8,
 
     "coeff_l1_loss": 1.0,
     "coeff_l2_loss": 8.0,
@@ -8,12 +8,12 @@
     "coeff_perceptual_loss": 8.0,
 
     "coeff_redirection_feature_loss": 200.0,
-    "coeff_redirection_gaze_loss": 1.0,
-    "coeff_redirection_head_loss": 1.0,
+    "coeff_redirection_gaze_loss": 10.0,
+    "coeff_redirection_head_loss": 10.0,
 
     "coeff_id_loss": 5.0,
 
-    "coeff_gaze_head_label_loss": 1.0,
+    "coeff_gaze_head_label_loss": 80.0,
 
     "coeff_embedding_consistency_loss": 2.0,
 
@@ -32,7 +32,7 @@
     "compute_full_result": true,
     "d_reg_every": 16,
     "is_progressive_training": true,
-    "load_step": 0,
+    "load_step": 5000,
     "num_data_loaders": 4,
     "print_freq_test": 5000,
     "print_freq_train": 100,
@@ -63,15 +63,15 @@
     "pretrained_head_gaze_net_eval": "./pretrained_models/baseline_estimator_resnet.tar",
     "gazenet_savepath": "./output/baseline_estimator_vgg/",
     "eval_gazenet_savepath": "./output/baseline_estimator_resnet/",
-    "save_path": "./output/ST-ED/save_4",
-    "log_path": "./output/ST-ED/log_4",
+    "save_path": "./output/ST-ED/save_5",
+    "log_path": "./output/ST-ED/log_5",
 
-    "input_path": "/home/ethentsao/Desktop/Untitled.png",
-    "redirect_path": "./output/redirect",
-    "checkpoint_path": "./output/ST-ED/save_4/checkpoints/40000.pt",
+    "input_path": "./demo/jason_1000/jason.png",
+    "redirect_path": "./demo/jason_1000",
+    "checkpoint_path": "./output/ST-ED/save_5/checkpoints/1000.pt",
     "head_pitch": 0.0,
     "head_yaw": 0.0,
-    "gaze_pitch": 0.2,
+    "gaze_pitch": 0.0,
     "gaze_yaw": 0.0,
     "preprocess": false
 }
