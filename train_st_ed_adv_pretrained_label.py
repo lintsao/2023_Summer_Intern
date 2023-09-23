@@ -148,7 +148,7 @@ This part is to create the network.
 """
 
 # Create redirection network
-network = STED().to(device)
+network = STED(device).to(device)
 # Load weights if available
 from checkpoints_manager import CheckpointsManager
 
@@ -346,8 +346,8 @@ if config.compute_full_result:
     logging.info('Computing complete test results for final model...')
     all_data = OrderedDict()
     for tag, hdf_file, is_bgr, prefixes in [
-        ('gc/val', config.gazecapture_file, False, all_gc_prefixes['val']),
-        ('gc/test', config.gazecapture_file, False, all_gc_prefixes['test']),
+        # ('gc/val', config.gazecapture_file, False, all_gc_prefixes['val']),
+        # ('gc/test', config.gazecapture_file, False, all_gc_prefixes['test']),
         ('mpi', config.mpiigaze_file, False, None),
     ]:
         # Define dataset structure based on selected prefixes
